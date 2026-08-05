@@ -13,14 +13,19 @@ object EpgRepository {
         .readTimeout(12, TimeUnit.SECONDS)
         .build()
 
-    private val cache = ConcurrentHashMap<String, NowProgram?>()
+    /** Present programs only — ConcurrentHashMap forbids null values. */
+    private val cache = ConcurrentHashMap<String, NowProgram>()
+
+    /** Stream ids we already tried and found empty/failed. */
+    private val empty = ConcurrentHashMap.newKeySet<String>()
 
     private fun key(sourceId: String, streamId: Int) = "${sourceId}_$streamId"
 
     suspend fun nowPlaying(source: PlaylistSource, streamId: Int): NowProgram? =
         withContext(Dispatchers.IO) {
             val cacheKey = key(source.id, streamId)
-            if (cache.containsKey(cacheKey)) return@withContext cache[cacheKey]
+            cache[cacheKey]?.let { return@withContext it }
+            if (cacheKey in empty) return@withContext null
 
             val program = runCatching {
                 val url =
@@ -37,7 +42,11 @@ object EpgRepository {
                 }
             }.getOrNull()
 
-            cache[cacheKey] = program
+            if (program != null) {
+                cache[cacheKey] = program
+            } else {
+                empty.add(cacheKey)
+            }
             program
         }
 }

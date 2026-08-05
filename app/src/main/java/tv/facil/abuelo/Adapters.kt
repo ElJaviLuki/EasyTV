@@ -149,9 +149,9 @@ class CatalogAdapter(
                 val bindId = streamId
                 holder.epgJob = scope.launch {
                     val now = EpgRepository.nowPlaying(epgSource, bindId)
-                    if (holder.bindingAdapterPosition == position) {
-                        holder.binding.channelEpg.text = now?.scheduleLine() ?: item.group
-                    }
+                    val pos = holder.bindingAdapterPosition
+                    if (pos == RecyclerView.NO_POSITION || pos != position) return@launch
+                    holder.binding.channelEpg.text = now?.scheduleLine() ?: item.group
                 }
             }
         }
