@@ -19,6 +19,8 @@ class EpisodesActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChannelsBinding
     private lateinit var source: PlaylistSource
+    private var seriesId: Int = -1
+    private var seriesName: String = ""
     private var allItems: List<CatalogItem> = emptyList()
     private var selectedCategory: String = "Todas"
     private lateinit var categoryAdapter: CategoryAdapter
@@ -33,12 +35,14 @@ class EpisodesActivity : AppCompatActivity() {
             finish()
             return
         }
-        val seriesId = intent.getIntExtra(EXTRA_SERIES_ID, -1)
-        val seriesName = intent.getStringExtra(EXTRA_SERIES_NAME).orEmpty()
+        seriesId = intent.getIntExtra(EXTRA_SERIES_ID, -1)
+        seriesName = intent.getStringExtra(EXTRA_SERIES_NAME).orEmpty()
         if (seriesId < 0) {
             finish()
             return
         }
+        AppSettings.lastSourceId = source.id
+        AppSettings.lastScreen = AppScreen.SERIES
 
         binding.title.text = seriesName
         binding.backButton.text = getString(R.string.back_series)
@@ -60,15 +64,20 @@ class EpisodesActivity : AppCompatActivity() {
             epgSource = null,
             showLiveEpg = false
         ) { item ->
-            EpisodeQueue.set(source.id, seriesName, allItems, item.url)
-            startActivity(
-                Intent(this, PlayerActivity::class.java)
-                    .putExtra(PlayerActivity.EXTRA_URL, item.url)
-                    .putExtra(PlayerActivity.EXTRA_NAME, item.name)
-                    .putExtra(PlayerActivity.EXTRA_GROUP, seriesName)
-                    .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
-                    .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
-                    .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, true)
+            EpisodeQueue.set(source.id, seriesId, seriesName, allItems, item.url)
+            ModeNav.openVod(
+                this,
+                source.id,
+                VodPlayback(
+                    url = item.url,
+                    name = item.name,
+                    group = seriesName,
+                    logo = item.logo,
+                    number = item.number,
+                    seriesId = seriesId,
+                    seriesName = seriesName,
+                    positionMs = 0L
+                )
             )
         }
         binding.channelList.layoutManager = LinearLayoutManager(this)

@@ -18,6 +18,14 @@ object AppSettings {
     private const val KEY_LAST_LIVE_NUMBER = "last_live_number"
     private const val KEY_LAST_LIVE_LOGO = "last_live_logo"
     private const val KEY_LAST_LIVE_STREAM_ID = "last_live_stream_id"
+    private const val KEY_VOD_URL = "vod_url"
+    private const val KEY_VOD_NAME = "vod_name"
+    private const val KEY_VOD_GROUP = "vod_group"
+    private const val KEY_VOD_LOGO = "vod_logo"
+    private const val KEY_VOD_NUMBER = "vod_number"
+    private const val KEY_VOD_SERIES_ID = "vod_series_id"
+    private const val KEY_VOD_SERIES_NAME = "vod_series_name"
+    private const val KEY_VOD_POSITION_MS = "vod_position_ms"
 
     @Volatile
     private var prefs: SharedPreferences? = null
@@ -80,6 +88,57 @@ object AppSettings {
             streamId = requirePrefs().getInt(KEY_LAST_LIVE_STREAM_ID, -1).takeIf { it > 0 }
         )
     }
+
+    fun saveLastVod(
+        url: String,
+        name: String,
+        group: String,
+        logo: String?,
+        number: Int,
+        seriesId: Int?,
+        seriesName: String?,
+        positionMs: Long = 0L
+    ) {
+        requirePrefs().edit()
+            .putString(KEY_VOD_URL, url)
+            .putString(KEY_VOD_NAME, name)
+            .putString(KEY_VOD_GROUP, group)
+            .putString(KEY_VOD_LOGO, logo.orEmpty())
+            .putInt(KEY_VOD_NUMBER, number)
+            .putInt(KEY_VOD_SERIES_ID, seriesId ?: -1)
+            .putString(KEY_VOD_SERIES_NAME, seriesName.orEmpty())
+            .putLong(KEY_VOD_POSITION_MS, positionMs.coerceAtLeast(0L))
+            .apply()
+    }
+
+    fun lastVodPlayback(): VodPlayback? {
+        val url = requirePrefs().getString(KEY_VOD_URL, null)?.takeIf { it.isNotBlank() }
+            ?: return null
+        val seriesId = requirePrefs().getInt(KEY_VOD_SERIES_ID, -1).takeIf { it > 0 }
+        return VodPlayback(
+            url = url,
+            name = requirePrefs().getString(KEY_VOD_NAME, "").orEmpty(),
+            group = requirePrefs().getString(KEY_VOD_GROUP, "").orEmpty(),
+            logo = requirePrefs().getString(KEY_VOD_LOGO, null)?.ifBlank { null },
+            number = requirePrefs().getInt(KEY_VOD_NUMBER, 0),
+            seriesId = seriesId,
+            seriesName = requirePrefs().getString(KEY_VOD_SERIES_NAME, null)?.ifBlank { null },
+            positionMs = requirePrefs().getLong(KEY_VOD_POSITION_MS, 0L)
+        )
+    }
+}
+
+data class VodPlayback(
+    val url: String,
+    val name: String,
+    val group: String,
+    val logo: String?,
+    val number: Int,
+    val seriesId: Int?,
+    val seriesName: String?,
+    val positionMs: Long
+) {
+    val isSeries: Boolean get() = seriesId != null
 }
 
 enum class AppScreen(val key: String) {
@@ -87,6 +146,8 @@ enum class AppScreen(val key: String) {
     SERIES("series"),
     MOVIES("movies"),
     CHANNELS("channels"),
+    STREAMING_SERIES("streaming_series"),
+    STREAMING_MOVIE("streaming_movie"),
     SETTINGS("settings");
 
     companion object {

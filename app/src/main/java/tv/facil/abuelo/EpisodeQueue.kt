@@ -18,14 +18,25 @@ object EpisodeQueue {
         private set
 
     @Volatile
+    var seriesId: Int? = null
+        private set
+
+    @Volatile
     var seriesName: String = ""
         private set
 
     val isActive: Boolean
         get() = index in episodes.indices
 
-    fun set(sourceId: String, seriesName: String, episodes: List<CatalogItem>, startUrl: String) {
+    fun set(
+        sourceId: String,
+        seriesId: Int,
+        seriesName: String,
+        episodes: List<CatalogItem>,
+        startUrl: String
+    ) {
         this.sourceId = sourceId
+        this.seriesId = seriesId
         this.seriesName = seriesName
         this.episodes = episodes.filter { it.url.isNotBlank() }
         this.index = this.episodes.indexOfFirst { it.url == startUrl }.coerceAtLeast(0)
@@ -35,6 +46,7 @@ object EpisodeQueue {
         episodes = emptyList()
         index = -1
         sourceId = ""
+        seriesId = null
         seriesName = ""
     }
 

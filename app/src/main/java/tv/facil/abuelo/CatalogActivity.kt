@@ -79,8 +79,8 @@ class CatalogActivity : AppCompatActivity() {
                     )
                 }
                 item.url.isNotBlank() -> {
-                    EpisodeQueue.clear()
                     if (currentKind == ContentKind.LIVE) {
+                        EpisodeQueue.clear()
                         ZapPlaylist.set(
                             PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
                                 .ifEmpty { allItems }
@@ -88,22 +88,35 @@ class CatalogActivity : AppCompatActivity() {
                         )
                         AppSettings.saveLastLive(item)
                         AppSettings.lastScreen = AppScreen.TV
+                        startActivity(
+                            Intent(this, PlayerActivity::class.java)
+                                .putExtra(PlayerActivity.EXTRA_URL, item.url)
+                                .putExtra(PlayerActivity.EXTRA_NAME, item.name)
+                                .putExtra(PlayerActivity.EXTRA_GROUP, item.group)
+                                .putExtra(PlayerActivity.EXTRA_NUMBER, item.number)
+                                .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
+                                .putExtra(PlayerActivity.EXTRA_STREAM_ID, item.streamId ?: -1)
+                                .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
+                                .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, true)
+                                .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, false)
+                        )
+                        finish()
                     } else {
-                        ZapPlaylist.clear()
+                        ModeNav.openVod(
+                            this,
+                            source.id,
+                            VodPlayback(
+                                url = item.url,
+                                name = item.name,
+                                group = item.group,
+                                logo = item.logo,
+                                number = item.number,
+                                seriesId = null,
+                                seriesName = null,
+                                positionMs = 0L
+                            )
+                        )
                     }
-                    startActivity(
-                        Intent(this, PlayerActivity::class.java)
-                            .putExtra(PlayerActivity.EXTRA_URL, item.url)
-                            .putExtra(PlayerActivity.EXTRA_NAME, item.name)
-                            .putExtra(PlayerActivity.EXTRA_GROUP, item.group)
-                            .putExtra(PlayerActivity.EXTRA_NUMBER, item.number)
-                            .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
-                            .putExtra(PlayerActivity.EXTRA_STREAM_ID, item.streamId ?: -1)
-                            .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
-                            .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, currentKind == ContentKind.LIVE)
-                            .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, currentKind != ContentKind.LIVE)
-                    )
-                    if (currentKind == ContentKind.LIVE) finish()
                 }
             }
         }

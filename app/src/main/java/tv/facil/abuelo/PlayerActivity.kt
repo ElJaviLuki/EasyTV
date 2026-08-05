@@ -33,6 +33,9 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_ZAP_ENABLED = "zap_enabled"
         /** When true, DPAD left/right seek (series/movies). */
         const val EXTRA_SEEK_ENABLED = "seek_enabled"
+        const val EXTRA_START_POSITION_MS = "start_position_ms"
+        const val EXTRA_SERIES_ID = "series_id"
+        const val EXTRA_SERIES_NAME = "series_name"
 
         private const val SEEK_STEP_MS = 5_000L
         private const val SEEK_HOLD_STEP_MS = 15_000L
@@ -53,6 +56,9 @@ class PlayerActivity : AppCompatActivity() {
     private var sourceId: String = ""
     private var zapEnabled: Boolean = false
     private var seekEnabled: Boolean = false
+    private var seriesId: Int? = null
+    private var seriesName: String? = null
+    private var pendingStartPositionMs: Long = 0L
     private var endPromptVisible: Boolean = false
     private var nextCountdownSec: Int = NEXT_EPISODE_DELAY_SEC
     private var centerPressCount: Int = 0
@@ -60,6 +66,8 @@ class PlayerActivity : AppCompatActivity() {
     private var epgJob: Job? = null
 
     val isLiveZap: Boolean get() = zapEnabled
+    val isSeriesVod: Boolean get() = seekEnabled && (seriesId != null || EpisodeQueue.isActive)
+    val isMovieVod: Boolean get() = seekEnabled && !isSeriesVod
 
     private val handler = Handler(Looper.getMainLooper())
     private val resetCenterPresses = Runnable { centerPressCount = 0 }
@@ -102,13 +110,20 @@ class PlayerActivity : AppCompatActivity() {
         sourceId = intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()
         zapEnabled = intent.getBooleanExtra(EXTRA_ZAP_ENABLED, false)
         seekEnabled = intent.getBooleanExtra(EXTRA_SEEK_ENABLED, false)
+        seriesId = intent.getIntExtra(EXTRA_SERIES_ID, -1).takeIf { it > 0 }
+            ?: EpisodeQueue.seriesId
+        seriesName = intent.getStringExtra(EXTRA_SERIES_NAME)?.ifBlank { null }
+            ?: EpisodeQueue.seriesName.takeIf { it.isNotBlank() }
+        pendingStartPositionMs = intent.getLongExtra(EXTRA_START_POSITION_MS, 0L)
         if (currentUrl.isBlank()) {
             finish()
             return
         }
-        if (zapEnabled) {
-            AppSettings.lastSourceId = sourceId
-            AppSettings.lastScreen = AppScreen.TV
+        AppSettings.lastSourceId = sourceId
+        when {
+            zapEnabled -> AppSettings.lastScreen = AppScreen.TV
+            isSeriesVod -> AppSettings.lastScreen = AppScreen.STREAMING_SERIES
+            seekEnabled -> AppSettings.lastScreen = AppScreen.STREAMING_MOVIE
         }
 
         binding.progressBar.visibility = if (seekEnabled) View.VISIBLE else View.GONE
@@ -167,6 +182,8 @@ class PlayerActivity : AppCompatActivity() {
                     streamId = currentStreamId
                 )
             )
+        } else if (seekEnabled) {
+            persistVodState()
         }
         updateProgressUi()
         showOverlay()
@@ -174,7 +191,55 @@ class PlayerActivity : AppCompatActivity() {
         val exo = player ?: return
         exo.setMediaItem(MediaItem.fromUri(currentUrl))
         exo.prepare()
+        if (pendingStartPositionMs > 0L) {
+            exo.seekTo(pendingStartPositionMs)
+            pendingStartPositionMs = 0L
+        }
         exo.playWhenReady = true
+    }
+
+    fun persistPlaybackForNav() {
+        if (zapEnabled) {
+            AppSettings.saveLastLive(
+                CatalogItem(
+                    number = currentNumber,
+                    name = currentName,
+                    group = currentGroup,
+                    logo = currentLogo,
+                    url = currentUrl,
+                    streamId = currentStreamId
+                )
+            )
+            AppSettings.lastScreen = AppScreen.TV
+        } else if (seekEnabled) {
+            persistVodState()
+        }
+    }
+
+    private fun persistVodState() {
+        val sid = seriesId ?: EpisodeQueue.seriesId
+        AppSettings.lastScreen =
+            if (sid != null || EpisodeQueue.isActive) AppScreen.STREAMING_SERIES
+            else AppScreen.STREAMING_MOVIE
+        AppSettings.saveLastVod(
+            url = currentUrl,
+            name = currentName,
+            group = currentGroup,
+            logo = currentLogo,
+            number = currentNumber,
+            seriesId = sid,
+            seriesName = seriesName ?: EpisodeQueue.seriesName.takeIf { it.isNotBlank() },
+            positionMs = player?.currentPosition?.coerceAtLeast(0L) ?: 0L
+        )
+    }
+
+    private fun leaveVodToCatalog() {
+        persistVodState()
+        if (isSeriesVod) {
+            ModeNav.openCatalog(this, sourceId, ContentKind.SERIES)
+        } else {
+            ModeNav.openCatalog(this, sourceId, ContentKind.MOVIES)
+        }
     }
 
     private fun applyItem(item: CatalogItem, live: Boolean) {
@@ -238,6 +303,8 @@ class PlayerActivity : AppCompatActivity() {
     private fun playNextEpisode() {
         val next = EpisodeQueue.advance() ?: return
         applyItem(next, live = false)
+        seriesId = EpisodeQueue.seriesId ?: seriesId
+        seriesName = EpisodeQueue.seriesName.ifBlank { seriesName }
         playCurrent()
     }
 
@@ -480,7 +547,11 @@ class PlayerActivity : AppCompatActivity() {
                 return true
             }
             KeyEvent.KEYCODE_BACK -> {
-                finish()
+                if (seekEnabled) {
+                    leaveVodToCatalog()
+                } else {
+                    finish()
+                }
                 return true
             }
         }
@@ -488,6 +559,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        if (seekEnabled) persistVodState()
         super.onStop()
         player?.pause()
     }
