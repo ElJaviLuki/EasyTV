@@ -6,7 +6,9 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import tv.facil.abuelo.databinding.ActivityChannelsBinding
 
 class ChannelsActivity : AppCompatActivity() {
@@ -55,27 +57,47 @@ class ChannelsActivity : AppCompatActivity() {
         binding.channelList.layoutManager = LinearLayoutManager(this)
         binding.channelList.adapter = channelAdapter
 
-        load()
+        showLocalCacheThenRefresh()
     }
 
     private fun categoryNames(): List<String> =
         listOf("Todas") + allChannels.map { it.group }.distinct().sorted()
 
-    private fun load() {
-        binding.loading.visibility = View.VISIBLE
-        binding.status.text = getString(R.string.loading)
+    private fun applyChannels(channels: List<Channel>, status: String) {
+        allChannels = channels
+        binding.loading.visibility = View.GONE
+        binding.status.text = status
+        selectedCategory = "Todas"
+        categoryAdapter.submit(categoryNames(), selectedCategory)
+        renderChannels()
+    }
+
+    private fun showLocalCacheThenRefresh() {
         lifecycleScope.launch {
+            val cached = withContext(Dispatchers.IO) {
+                PlaylistRepository.memoryCached(source.id)
+                    .ifEmpty { PlaylistRepository.diskCached(this@ChannelsActivity, source.id) }
+            }
+            if (cached.isNotEmpty()) {
+                applyChannels(cached, "${cached.size} canales (caché) · actualizando…")
+            } else {
+                binding.loading.visibility = View.VISIBLE
+                binding.status.text = getString(R.string.loading)
+            }
+
             try {
-                allChannels = PlaylistRepository.loadChannels(source)
-                binding.loading.visibility = View.GONE
-                binding.status.text = "${allChannels.size} canales · ${source.hint}"
-                selectedCategory = "Todas"
-                categoryAdapter.submit(categoryNames(), selectedCategory)
-                renderChannels()
+                val fresh = PlaylistRepository.loadChannels(
+                    this@ChannelsActivity, source, force = cached.isNotEmpty()
+                )
+                applyChannels(fresh, "${fresh.size} canales · ${source.hint}")
             } catch (e: Exception) {
                 binding.loading.visibility = View.GONE
-                binding.status.text = getString(R.string.load_error) + " (${e.message})"
-                binding.backButton.requestFocus()
+                if (cached.isEmpty()) {
+                    binding.status.text = getString(R.string.load_error) + " (${e.message})"
+                    binding.backButton.requestFocus()
+                } else {
+                    binding.status.text = "${cached.size} canales (caché) · sin red"
+                }
             }
         }
     }
