@@ -73,23 +73,44 @@ object ModeNav {
     }
 
     fun openSeries(activity: AppCompatActivity, sourceId: String) {
+        // Toggle: streaming ↔ catalog (resume at saved position).
+        if (activity is PlayerActivity && activity.isSeriesVod) {
+            openCatalog(activity, sourceId, ContentKind.SERIES)
+            return
+        }
+        if (activity is CatalogActivity && activity.currentKind == ContentKind.SERIES) {
+            val vod = AppSettings.lastSeriesVod()
+            if (vod != null && vod.isSeries) {
+                openVod(activity, sourceId, vod, startPaused = true)
+            }
+            return
+        }
+        // From elsewhere: prefer last hub (streaming if left mid-episode, else catalog).
         if (AppSettings.lastSeriesHub == AppScreen.STREAMING_SERIES) {
-            if (activity is PlayerActivity && activity.isSeriesVod) return
             val vod = AppSettings.lastSeriesVod()
             if (vod != null && vod.isSeries) {
                 openVod(activity, sourceId, vod, startPaused = true)
                 return
             }
-            // Corrupt / movie-tagged slot — fall back to catalog.
             AppSettings.lastSeriesHub = AppScreen.SERIES
         }
-        if (activity is CatalogActivity && activity.currentKind == ContentKind.SERIES) return
         openCatalog(activity, sourceId, ContentKind.SERIES)
     }
 
     fun openMovies(activity: AppCompatActivity, sourceId: String) {
+        // Toggle: streaming ↔ catalog (resume at saved position).
+        if (activity is PlayerActivity && activity.isMovieVod) {
+            openCatalog(activity, sourceId, ContentKind.MOVIES)
+            return
+        }
+        if (activity is CatalogActivity && activity.currentKind == ContentKind.MOVIES) {
+            val vod = AppSettings.lastMovieVod()
+            if (vod != null && !vod.isSeries) {
+                openVod(activity, sourceId, vod, startPaused = true)
+            }
+            return
+        }
         if (AppSettings.lastMoviesHub == AppScreen.STREAMING_MOVIE) {
-            if (activity is PlayerActivity && activity.isMovieVod) return
             val vod = AppSettings.lastMovieVod()
             if (vod != null && !vod.isSeries) {
                 openVod(activity, sourceId, vod, startPaused = true)
@@ -97,7 +118,6 @@ object ModeNav {
             }
             AppSettings.lastMoviesHub = AppScreen.MOVIES
         }
-        if (activity is CatalogActivity && activity.currentKind == ContentKind.MOVIES) return
         openCatalog(activity, sourceId, ContentKind.MOVIES)
     }
 

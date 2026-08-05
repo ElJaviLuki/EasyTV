@@ -130,6 +130,7 @@ object AppSettings {
         )
     }
 
+    /** Saves VOD resume slot only. Does not change hub/screen — callers set those intentionally. */
     fun saveLastVod(
         url: String,
         name: String,
@@ -142,10 +143,8 @@ object AppSettings {
     ) {
         if (seriesId != null) {
             writeVod(PREFIX_SERIES_VOD, url, name, group, logo, number, seriesId, seriesName, positionMs)
-            lastSeriesHub = AppScreen.STREAMING_SERIES
         } else {
             writeVod(PREFIX_MOVIE_VOD, url, name, group, logo, number, null, null, positionMs)
-            lastMoviesHub = AppScreen.STREAMING_MOVIE
         }
     }
 

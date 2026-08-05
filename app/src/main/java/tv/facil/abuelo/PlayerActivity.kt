@@ -252,11 +252,17 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun persistVodState() {
+    /**
+     * @param updateScreen when true, marks series/movies hub as streaming.
+     *                     onStop uses false so leaving to catalog (hub=catalog) is not overwritten.
+     */
+    private fun persistVodState(updateScreen: Boolean = true) {
         if (!seekEnabled) return
         val sid = seriesId
-        AppSettings.lastScreen =
-            if (sid != null) AppScreen.STREAMING_SERIES else AppScreen.STREAMING_MOVIE
+        if (updateScreen) {
+            AppSettings.lastScreen =
+                if (sid != null) AppScreen.STREAMING_SERIES else AppScreen.STREAMING_MOVIE
+        }
         AppSettings.saveLastVod(
             url = currentUrl,
             name = currentName,
@@ -696,7 +702,8 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-        if (seekEnabled) persistVodState()
+        // Position only — do not reset hub/screen (e.g. green → catalog already set hub).
+        if (seekEnabled) persistVodState(updateScreen = false)
         super.onStop()
         player?.pause()
     }
