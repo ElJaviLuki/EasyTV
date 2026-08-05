@@ -16,7 +16,7 @@ class SectionActivity : AppCompatActivity() {
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val source = SeededPlaylists.byId(intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()) ?: run {
+        val source = PlaylistStore.byId(intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()) ?: run {
             finish()
             return
         }

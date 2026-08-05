@@ -32,6 +32,7 @@ data class PlaylistSource(
         "$baseUrl/series/$username/$password/$episodeId.${ext.ifBlank { "mp4" }}"
 }
 
+/** Playable row (live/movie) or series entry (url empty, seriesId set). */
 data class CatalogItem(
     val number: Int,
     val name: String,
@@ -40,20 +41,3 @@ data class CatalogItem(
     val url: String,
     val seriesId: Int? = null
 )
-
-/**
- * Local placeholders only — replace before building.
- * Real credentials must never be committed.
- */
-object SeededPlaylists {
-    private const val USER = "YOUR_USER"
-    private const val PASS = "YOUR_PASS"
-
-    val sources: List<PlaylistSource> = listOf(
-        PlaylistSource("1", "Manolo1", "http://server1.example:80", USER, PASS, "Servidor principal"),
-        PlaylistSource("2", "Manolo2", "http://server2.example:80", USER, PASS, "Alternativa 2"),
-        PlaylistSource("3", "Manolo3", "http://server3.example:80", USER, PASS, "Alternativa 3")
-    )
-
-    fun byId(id: String): PlaylistSource? = sources.find { it.id == id }
-}

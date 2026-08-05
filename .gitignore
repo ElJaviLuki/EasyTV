@@ -11,6 +11,18 @@ captures/
 *.ap_
 *.aab
 
+# Secrets — seed post-hoc with scripts/seed_playlists.py
+app/src/main/assets/playlists.json
+secrets/
+*.secret.json
+
+# Local dumps / tests that may contain credentials
+m3u_test.txt
+*.ab
+log_decoded.json
+
 # OS / editor
 .DS_Store
 Thumbs.db
+*.swp
+*~

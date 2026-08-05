@@ -12,6 +12,7 @@
         android:required="false" />
 
     <application
+        android:name=".TvFacilApp"
         android:allowBackup="true"
         android:banner="@drawable/banner"
         android:icon="@drawable/ic_launcher"

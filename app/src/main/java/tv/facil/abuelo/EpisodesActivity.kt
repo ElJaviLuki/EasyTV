@@ -28,7 +28,7 @@ class EpisodesActivity : AppCompatActivity() {
         binding = ActivityChannelsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        source = SeededPlaylists.byId(intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()) ?: run {
+        source = PlaylistStore.byId(intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()) ?: run {
             finish()
             return
         }
