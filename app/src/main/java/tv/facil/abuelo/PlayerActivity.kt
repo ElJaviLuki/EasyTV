@@ -39,6 +39,7 @@ class PlayerActivity : AppCompatActivity() {
         private const val PROGRESS_MAX = 1000
         private const val PROGRESS_TICK_MS = 500L
         private const val NEXT_EPISODE_DELAY_SEC = 10
+        private const val CENTER_TRIPLE_WINDOW_MS = 900L
     }
 
     private lateinit var binding: ActivityPlayerBinding
@@ -54,8 +55,14 @@ class PlayerActivity : AppCompatActivity() {
     private var seekEnabled: Boolean = false
     private var endPromptVisible: Boolean = false
     private var nextCountdownSec: Int = NEXT_EPISODE_DELAY_SEC
+    private var centerPressCount: Int = 0
+    private var lastCenterPressAt: Long = 0L
     private var epgJob: Job? = null
+
+    val isLiveZap: Boolean get() = zapEnabled
+
     private val handler = Handler(Looper.getMainLooper())
+    private val resetCenterPresses = Runnable { centerPressCount = 0 }
     private val hideOverlay = Runnable {
         stopProgressTicks()
         binding.overlay.visibility = View.GONE
@@ -98,6 +105,10 @@ class PlayerActivity : AppCompatActivity() {
         if (currentUrl.isBlank()) {
             finish()
             return
+        }
+        if (zapEnabled) {
+            AppSettings.lastSourceId = sourceId
+            AppSettings.lastScreen = AppScreen.TV
         }
 
         binding.progressBar.visibility = if (seekEnabled) View.VISIBLE else View.GONE
@@ -144,6 +155,19 @@ class PlayerActivity : AppCompatActivity() {
             error(R.drawable.ic_channel_placeholder)
         }
         binding.progressBar.visibility = if (seekEnabled) View.VISIBLE else View.GONE
+        if (zapEnabled) {
+            AppSettings.lastScreen = AppScreen.TV
+            AppSettings.saveLastLive(
+                CatalogItem(
+                    number = currentNumber,
+                    name = currentName,
+                    group = currentGroup,
+                    logo = currentLogo,
+                    url = currentUrl,
+                    streamId = currentStreamId
+                )
+            )
+        }
         updateProgressUi()
         showOverlay()
         loadEpg()
@@ -246,6 +270,7 @@ class PlayerActivity : AppCompatActivity() {
                 EpisodeQueue.clear()
                 ZapPlaylist.set(live)
                 sourceId = source.id
+                AppSettings.lastScreen = AppScreen.TV
                 applyItem(first, live = true)
                 playCurrent()
             } catch (e: Exception) {
@@ -336,6 +361,23 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    private fun onLiveCenterPress() {
+        val now = System.currentTimeMillis()
+        if (now - lastCenterPressAt > CENTER_TRIPLE_WINDOW_MS) {
+            centerPressCount = 0
+        }
+        lastCenterPressAt = now
+        centerPressCount += 1
+        handler.removeCallbacks(resetCenterPresses)
+        if (centerPressCount >= 3) {
+            centerPressCount = 0
+            ModeNav.openChannelCatalog(this, sourceId)
+            return
+        }
+        handler.postDelayed(resetCenterPresses, CENTER_TRIPLE_WINDOW_MS)
+        showOverlay()
+    }
+
     private fun zap(delta: Int) {
         if (!zapEnabled || endPromptVisible) return
         val next = ZapPlaylist.neighbor(currentUrl, delta) ?: return
@@ -360,6 +402,12 @@ class PlayerActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_BACK -> {
                     goToLiveTv()
                     return true
+                }
+                KeyEvent.KEYCODE_PROG_RED,
+                KeyEvent.KEYCODE_PROG_GREEN,
+                KeyEvent.KEYCODE_PROG_YELLOW,
+                KeyEvent.KEYCODE_PROG_BLUE -> {
+                    if (ModeNav.handleColorKey(this, keyCode, sourceId)) return true
                 }
                 KeyEvent.KEYCODE_CHANNEL_UP,
                 KeyEvent.KEYCODE_CHANNEL_DOWN,
@@ -396,10 +444,18 @@ class PlayerActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_ENTER -> {
                 if (seekEnabled) {
                     togglePlayPause()
+                } else if (zapEnabled) {
+                    onLiveCenterPress()
                 } else {
                     showOverlay()
                 }
                 return true
+            }
+            KeyEvent.KEYCODE_PROG_RED,
+            KeyEvent.KEYCODE_PROG_GREEN,
+            KeyEvent.KEYCODE_PROG_YELLOW,
+            KeyEvent.KEYCODE_PROG_BLUE -> {
+                if (ModeNav.handleColorKey(this, keyCode, sourceId)) return true
             }
             KeyEvent.KEYCODE_INFO,
             KeyEvent.KEYCODE_DPAD_UP,
@@ -441,6 +497,7 @@ class PlayerActivity : AppCompatActivity() {
         stopProgressTicks()
         handler.removeCallbacks(hideOverlay)
         handler.removeCallbacks(nextEpisodeTick)
+        handler.removeCallbacks(resetCenterPresses)
         binding.playerView.player = null
         player?.release()
         player = null

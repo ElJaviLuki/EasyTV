@@ -2,6 +2,7 @@ package tv.facil.abuelo
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -19,7 +20,9 @@ class CatalogActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChannelsBinding
     private lateinit var source: PlaylistSource
-    private lateinit var kind: ContentKind
+    lateinit var currentKind: ContentKind
+        private set
+    private var fromTv: Boolean = false
     private var allItems: List<CatalogItem> = emptyList()
     private var selectedCategory: String = "Todas"
     private lateinit var categoryAdapter: CategoryAdapter
@@ -34,11 +37,23 @@ class CatalogActivity : AppCompatActivity() {
             finish()
             return
         }
-        kind = ContentKind.fromExtra(intent.getStringExtra(EXTRA_KIND))
+        currentKind = ContentKind.fromExtra(intent.getStringExtra(EXTRA_KIND))
+        fromTv = intent.getBooleanExtra(ModeNav.EXTRA_FROM_TV, currentKind == ContentKind.LIVE)
 
-        binding.title.text = "${source.name} · ${kind.title}"
-        binding.backButton.text = getString(R.string.back_section)
-        binding.backButton.setOnClickListener { finish() }
+        AppSettings.lastSourceId = source.id
+        AppSettings.lastScreen = when (currentKind) {
+            ContentKind.LIVE -> AppScreen.CHANNELS
+            ContentKind.SERIES -> AppScreen.SERIES
+            ContentKind.MOVIES -> AppScreen.MOVIES
+        }
+
+        binding.title.text = "${source.name} · ${currentKind.title}"
+        binding.backButton.text = when {
+            fromTv && currentKind == ContentKind.LIVE -> getString(R.string.back_to_tv)
+            else -> getString(R.string.back_section)
+        }
+        binding.backButton.setOnClickListener { navigateBack() }
+        binding.status.text = getString(R.string.color_legend)
 
         categoryAdapter = CategoryAdapter(emptyList(), selectedCategory) { category ->
             selectedCategory = category
@@ -53,10 +68,10 @@ class CatalogActivity : AppCompatActivity() {
             scope = lifecycleScope,
             items = emptyList(),
             epgSource = source,
-            showLiveEpg = kind == ContentKind.LIVE
+            showLiveEpg = currentKind == ContentKind.LIVE
         ) { item ->
             when {
-                kind == ContentKind.SERIES && item.seriesId != null -> {
+                currentKind == ContentKind.SERIES && item.seriesId != null -> {
                     startActivity(
                         Intent(this, EpisodesActivity::class.java)
                             .putExtra(EpisodesActivity.EXTRA_SOURCE_ID, source.id)
@@ -66,8 +81,14 @@ class CatalogActivity : AppCompatActivity() {
                 }
                 item.url.isNotBlank() -> {
                     EpisodeQueue.clear()
-                    if (kind == ContentKind.LIVE) {
-                        ZapPlaylist.set(visibleItems())
+                    if (currentKind == ContentKind.LIVE) {
+                        ZapPlaylist.set(
+                            PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
+                                .ifEmpty { allItems }
+                                .ifEmpty { visibleItems() }
+                        )
+                        AppSettings.saveLastLive(item)
+                        AppSettings.lastScreen = AppScreen.TV
                     } else {
                         ZapPlaylist.clear()
                     }
@@ -80,9 +101,10 @@ class CatalogActivity : AppCompatActivity() {
                             .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
                             .putExtra(PlayerActivity.EXTRA_STREAM_ID, item.streamId ?: -1)
                             .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
-                            .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, kind == ContentKind.LIVE)
-                            .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, kind != ContentKind.LIVE)
+                            .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, currentKind == ContentKind.LIVE)
+                            .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, currentKind != ContentKind.LIVE)
                     )
+                    if (currentKind == ContentKind.LIVE) finish()
                 }
             }
         }
@@ -92,13 +114,21 @@ class CatalogActivity : AppCompatActivity() {
         showCacheThenRefresh()
     }
 
+    private fun navigateBack() {
+        if (fromTv && currentKind == ContentKind.LIVE) {
+            ModeNav.openTv(this, source.id)
+        } else {
+            finish()
+        }
+    }
+
     private fun categoryNames(): List<String> =
         listOf("Todas") + allItems.map { it.group }.distinct().sorted()
 
     private fun applyItems(items: List<CatalogItem>, status: String) {
         allItems = items
         binding.loading.visibility = View.GONE
-        binding.status.text = status
+        binding.status.text = "$status\n${getString(R.string.color_legend)}"
         selectedCategory = "Todas"
         categoryAdapter.submit(categoryNames(), selectedCategory)
         renderList()
@@ -107,28 +137,30 @@ class CatalogActivity : AppCompatActivity() {
     private fun showCacheThenRefresh() {
         lifecycleScope.launch {
             val cached = withContext(Dispatchers.IO) {
-                PlaylistRepository.memoryCached(source.id, kind)
-                    .ifEmpty { PlaylistRepository.diskCached(this@CatalogActivity, source.id, kind) }
+                PlaylistRepository.memoryCached(source.id, currentKind)
+                    .ifEmpty { PlaylistRepository.diskCached(this@CatalogActivity, source.id, currentKind) }
             }
             if (cached.isNotEmpty()) {
-                applyItems(cached, "${cached.size} ${kind.loadingLabel} (caché) · actualizando…")
+                applyItems(cached, "${cached.size} ${currentKind.loadingLabel} (caché) · actualizando…")
             } else {
                 binding.loading.visibility = View.VISIBLE
-                binding.status.text = getString(R.string.loading_kind, kind.loadingLabel)
+                binding.status.text = getString(R.string.loading_kind, currentKind.loadingLabel)
             }
 
             try {
                 val fresh = PlaylistRepository.loadCatalog(
-                    this@CatalogActivity, source, kind, force = cached.isNotEmpty()
+                    this@CatalogActivity, source, currentKind, force = cached.isNotEmpty()
                 )
-                applyItems(fresh, "${fresh.size} ${kind.loadingLabel} · ${source.hint}")
+                applyItems(fresh, "${fresh.size} ${currentKind.loadingLabel} · ${source.hint}")
             } catch (e: Exception) {
                 binding.loading.visibility = View.GONE
                 if (cached.isEmpty()) {
                     binding.status.text = getString(R.string.load_error) + " (${e.message})"
                     binding.backButton.requestFocus()
                 } else {
-                    binding.status.text = "${cached.size} ${kind.loadingLabel} (caché) · sin red"
+                    binding.status.text =
+                        "${cached.size} ${currentKind.loadingLabel} (caché) · sin red\n" +
+                            getString(R.string.color_legend)
                 }
             }
         }
@@ -146,5 +178,14 @@ class CatalogActivity : AppCompatActivity() {
                 binding.channelList.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()
             }
         }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            navigateBack()
+            return true
+        }
+        if (ModeNav.handleColorKey(this, keyCode, source.id)) return true
+        return super.onKeyDown(keyCode, event)
     }
 }

@@ -24,9 +24,16 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (savedInstanceState == null && ModeNav.tryResume(this)) {
+            binding.subtitle.text = getString(R.string.resuming)
+            // Keep Main under the resumed screen so BACK from first entry can still change list.
+            return
+        }
+
         binding.subtitle.text = getString(R.string.choose_server)
         binding.serverList.layoutManager = LinearLayoutManager(this)
         binding.serverList.adapter = ServerAdapter(sources) { source ->
+            AppSettings.lastSourceId = source.id
             startActivity(
                 Intent(this, SectionActivity::class.java)
                     .putExtra(SectionActivity.EXTRA_SOURCE_ID, source.id)

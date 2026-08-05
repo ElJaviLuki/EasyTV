@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical"
+    android:paddingStart="56dp"
+    android:paddingTop="40dp"
+    android:paddingEnd="56dp"
+    android:paddingBottom="40dp">
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/settings_title"
+        android:textAppearance="@style/Text.Hero" />
+
+    <TextView
+        android:id="@+id/subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/settings_hint"
+        android:textAppearance="@style/Text.Caption" />
+
+    <TextView
+        android:id="@+id/toggleZapWrap"
+        style="@style/RowFocusable"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="36dp"
+        android:textAppearance="@style/Text.Title" />
+
+    <TextView
+        android:id="@+id/colorLegend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:text="@string/color_legend"
+        android:textAppearance="@style/Text.Caption" />
+
+    <TextView
+        android:id="@+id/backButton"
+        style="@style/RowFocusable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="36dp"
+        android:text="@string/back_section"
+        android:textAppearance="@style/Text.Body" />
+</LinearLayout>

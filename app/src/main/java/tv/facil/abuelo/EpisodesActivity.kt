@@ -2,6 +2,7 @@ package tv.facil.abuelo
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -106,5 +107,10 @@ class EpisodesActivity : AppCompatActivity() {
                 binding.channelList.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()
             }
         }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (ModeNav.handleColorKey(this, keyCode, source.id)) return true
+        return super.onKeyDown(keyCode, event)
     }
 }
