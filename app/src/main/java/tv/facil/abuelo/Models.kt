@@ -39,5 +39,20 @@ data class CatalogItem(
     val group: String,
     val logo: String?,
     val url: String,
-    val seriesId: Int? = null
+    val seriesId: Int? = null,
+    val streamId: Int? = null
 )
+
+data class NowProgram(
+    val title: String,
+    val startMs: Long,
+    val endMs: Long
+) {
+    fun scheduleLine(): String {
+        val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        val start = fmt.format(java.util.Date(startMs))
+        val end = fmt.format(java.util.Date(endMs))
+        return "$start–$end  $title"
+    }
+}
+

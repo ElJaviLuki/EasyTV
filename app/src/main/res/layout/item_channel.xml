@@ -9,10 +9,19 @@
 
     <TextView
         android:id="@+id/channelNumber"
-        android:layout_width="72dp"
+        android:layout_width="64dp"
         android:layout_height="wrap_content"
         android:textAppearance="@style/Text.Caption"
         android:textColor="@color/accent" />
+
+    <ImageView
+        android:id="@+id/channelLogo"
+        android:layout_width="72dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="16dp"
+        android:contentDescription="@null"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_channel_placeholder" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -29,11 +38,20 @@
             android:textAppearance="@style/Text.Title" />
 
         <TextView
-            android:id="@+id/channelGroup"
+            android:id="@+id/channelEpg"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
             android:textAppearance="@style/Text.Caption" />
+
+        <TextView
+            android:id="@+id/channelGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/Text.Caption"
+            android:visibility="gone" />
     </LinearLayout>
 </LinearLayout>

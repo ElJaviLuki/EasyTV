@@ -49,7 +49,12 @@ class CatalogActivity : AppCompatActivity() {
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         binding.categoryList.adapter = categoryAdapter
 
-        catalogAdapter = CatalogAdapter(emptyList()) { item ->
+        catalogAdapter = CatalogAdapter(
+            scope = lifecycleScope,
+            items = emptyList(),
+            epgSource = source,
+            showLiveEpg = kind == ContentKind.LIVE
+        ) { item ->
             when {
                 kind == ContentKind.SERIES && item.seriesId != null -> {
                     startActivity(

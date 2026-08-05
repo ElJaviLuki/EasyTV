@@ -9,27 +9,6 @@ object CatalogCache {
     private fun file(context: Context, sourceId: String, kind: ContentKind): File =
         File(context.filesDir, "catalog_${kind.apiKey}_$sourceId.tsv")
 
-    fun read(context: Context, sourceId: String, kind: ContentKind): List<CatalogItem> {
-        val f = file(context, sourceId, kind)
-        if (!f.exists()) return emptyList()
-        return runCatching {
-            f.bufferedReader().useLines { lines ->
-                lines.mapNotNull { line ->
-                    val p = line.split('\t')
-                    if (p.size < 6) return@mapNotNull null
-                    CatalogItem(
-                        number = p[0].toIntOrNull() ?: return@mapNotNull null,
-                        group = p[1],
-                        name = p[2],
-                        logo = p[3].ifBlank { null },
-                        url = p[4],
-                        seriesId = p[5].toIntOrNull()
-                    )
-                }.toList()
-            }
-        }.getOrDefault(emptyList())
-    }
-
     fun write(context: Context, sourceId: String, kind: ContentKind, items: List<CatalogItem>) {
         file(context, sourceId, kind).bufferedWriter().use { out ->
             for (c in items) {
@@ -38,11 +17,40 @@ object CatalogCache {
                     .append(c.name.replace('\t', ' ').replace('\n', ' ')).append('\t')
                     .append(c.logo.orEmpty().replace('\t', ' ')).append('\t')
                     .append(c.url.replace('\t', ' ')).append('\t')
-                    .append(c.seriesId?.toString().orEmpty())
+                    .append(c.seriesId?.toString().orEmpty()).append('\t')
+                    .append(c.streamId?.toString().orEmpty())
                     .append('\n')
             }
         }
     }
+
+    fun read(context: Context, sourceId: String, kind: ContentKind): List<CatalogItem> {
+        val f = file(context, sourceId, kind)
+        if (!f.exists()) return emptyList()
+        return runCatching {
+            f.bufferedReader().useLines { lines ->
+                lines.mapNotNull { line ->
+                    val p = line.split('\t')
+                    if (p.size < 5) return@mapNotNull null
+                    val url = p[4]
+                    CatalogItem(
+                        number = p[0].toIntOrNull() ?: return@mapNotNull null,
+                        group = p[1],
+                        name = p[2],
+                        logo = p[3].ifBlank { null },
+                        url = url,
+                        seriesId = p.getOrNull(5)?.toIntOrNull(),
+                        streamId = p.getOrNull(6)?.toIntOrNull() ?: streamIdFromUrl(url)
+                    )
+                }.toList()
+            }
+        }.getOrDefault(emptyList())
+    }
+}
+
+private fun streamIdFromUrl(url: String): Int? {
+    val m = Regex("""/(?:live|movie)/[^/]+/[^/]+/(\d+)\.""").find(url)
+    return m?.groupValues?.getOrNull(1)?.toIntOrNull()
 }
 
 object XtreamApi {
@@ -71,7 +79,8 @@ object XtreamApi {
                 name = o.optString("name").ifBlank { "Canal $streamId" },
                 group = categories[catId] ?: "Sin categoría",
                 logo = o.optString("stream_icon").ifBlank { null },
-                url = source.liveStreamUrl(streamId)
+                url = source.liveStreamUrl(streamId),
+                streamId = streamId
             )
         }
         return items
@@ -91,7 +100,8 @@ object XtreamApi {
                 name = o.optString("name").ifBlank { "Película $streamId" },
                 group = categories[catId] ?: "Sin categoría",
                 logo = o.optString("stream_icon").ifBlank { null },
-                url = source.movieUrl(streamId, ext)
+                url = source.movieUrl(streamId, ext),
+                streamId = streamId
             )
         }
         return items
@@ -146,4 +156,60 @@ object XtreamApi {
         }
         return items
     }
+
+    fun parseShortEpg(json: String): NowProgram? {
+        val root = JSONObject(json)
+        val listings = root.optJSONArray("epg_listings") ?: return null
+        if (listings.length() == 0) return null
+        val now = System.currentTimeMillis()
+        var fallback: NowProgram? = null
+        for (i in 0 until listings.length()) {
+            val o = listings.getJSONObject(i)
+            val title = decodeXtreamText(o.optString("title"))
+            if (title.isBlank()) continue
+            val startMs = parseEpgTime(o, start = true) ?: continue
+            val endMs = parseEpgTime(o, start = false) ?: continue
+            val program = NowProgram(title = title, startMs = startMs, endMs = endMs)
+            if (fallback == null) fallback = program
+            if (now in startMs until endMs) return program
+        }
+        return fallback
+    }
+}
+
+private fun decodeXtreamText(raw: String): String {
+    if (raw.isBlank()) return ""
+    return try {
+        val decoded = android.util.Base64.decode(raw, android.util.Base64.DEFAULT)
+        String(decoded, Charsets.UTF_8).trim().ifBlank { raw }
+    } catch (_: Exception) {
+        raw.trim()
+    }
+}
+
+private fun parseEpgTime(o: JSONObject, start: Boolean): Long? {
+    val tsKey = if (start) "start_timestamp" else "stop_timestamp"
+    val ts = o.optString(tsKey).toLongOrNull()
+    if (ts != null && ts > 0L) {
+        // Xtream usually uses seconds; treat large values as ms already.
+        return if (ts > 10_000_000_000L) ts else ts * 1000L
+    }
+    val textKey = if (start) "start" else "end"
+    val text = o.optString(textKey)
+    if (text.isBlank()) return null
+    val patterns = arrayOf(
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyyMMddHHmmss Z",
+        "yyyyMMddHHmmss"
+    )
+    for (p in patterns) {
+        try {
+            val fmt = java.text.SimpleDateFormat(p, java.util.Locale.US)
+            fmt.isLenient = true
+            return fmt.parse(text)?.time
+        } catch (_: Exception) {
+            // try next
+        }
+    }
+    return null
 }

@@ -53,7 +53,12 @@ class EpisodesActivity : AppCompatActivity() {
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         binding.categoryList.adapter = categoryAdapter
 
-        catalogAdapter = CatalogAdapter(emptyList()) { item ->
+        catalogAdapter = CatalogAdapter(
+            scope = lifecycleScope,
+            items = emptyList(),
+            epgSource = null,
+            showLiveEpg = false
+        ) { item ->
             startActivity(
                 Intent(this, PlayerActivity::class.java)
                     .putExtra(PlayerActivity.EXTRA_URL, item.url)
