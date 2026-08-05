@@ -34,6 +34,7 @@ class PlayerActivity : AppCompatActivity() {
         /** When true, DPAD left/right seek (series/movies). */
         const val EXTRA_SEEK_ENABLED = "seek_enabled"
         const val EXTRA_START_POSITION_MS = "start_position_ms"
+        const val EXTRA_START_PAUSED = "start_paused"
         const val EXTRA_SERIES_ID = "series_id"
         const val EXTRA_SERIES_NAME = "series_name"
 
@@ -60,6 +61,7 @@ class PlayerActivity : AppCompatActivity() {
     private var seriesId: Int? = null
     private var seriesName: String? = null
     private var pendingStartPositionMs: Long = 0L
+    private var startPaused: Boolean = false
     private var endPromptVisible: Boolean = false
     private var nextCountdownSec: Int = NEXT_EPISODE_DELAY_SEC
     private var centerPressCount: Int = 0
@@ -117,6 +119,7 @@ class PlayerActivity : AppCompatActivity() {
         seriesName = intent.getStringExtra(EXTRA_SERIES_NAME)?.ifBlank { null }
             ?: EpisodeQueue.seriesName.takeIf { it.isNotBlank() }
         pendingStartPositionMs = intent.getLongExtra(EXTRA_START_POSITION_MS, 0L)
+        startPaused = intent.getBooleanExtra(EXTRA_START_PAUSED, false)
         if (currentUrl.isBlank()) {
             finish()
             return
@@ -158,7 +161,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun playCurrent() {
         dismissEndPrompt()
-        clearTransportIcon()
+        if (!startPaused) clearTransportIcon()
         binding.infoNumber.text = if (currentNumber > 0) currentNumber.toString() else ""
         binding.nowPlaying.text = currentName
         binding.nowGroup.text = currentGroup
@@ -198,7 +201,12 @@ class PlayerActivity : AppCompatActivity() {
             exo.seekTo(pendingStartPositionMs)
             pendingStartPositionMs = 0L
         }
-        exo.playWhenReady = true
+        val resumePaused = startPaused && seekEnabled
+        startPaused = false
+        exo.playWhenReady = !resumePaused
+        if (resumePaused) {
+            showTransportIcon(playing = false)
+        }
     }
 
     fun persistPlaybackForNav() {

@@ -101,7 +101,12 @@ object ModeNav {
         openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
     }
 
-    fun openVod(activity: AppCompatActivity, sourceId: String, playback: VodPlayback) {
+    fun openVod(
+        activity: AppCompatActivity,
+        sourceId: String,
+        playback: VodPlayback,
+        startPaused: Boolean = false
+    ) {
         AppSettings.lastSourceId = sourceId
         AppSettings.lastScreen =
             if (playback.isSeries) AppScreen.STREAMING_SERIES else AppScreen.STREAMING_MOVIE
@@ -132,6 +137,7 @@ object ModeNav {
                     .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, true)
                     .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, false)
                     .putExtra(PlayerActivity.EXTRA_START_POSITION_MS, playback.positionMs)
+                    .putExtra(PlayerActivity.EXTRA_START_PAUSED, startPaused)
                     .putExtra(PlayerActivity.EXTRA_SERIES_ID, playback.seriesId ?: -1)
                     .putExtra(PlayerActivity.EXTRA_SERIES_NAME, playback.seriesName)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -159,7 +165,7 @@ object ModeNav {
             AppScreen.CHANNELS -> openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
             AppScreen.STREAMING_SERIES, AppScreen.STREAMING_MOVIE -> {
                 val vod = AppSettings.lastVodPlayback()
-                if (vod != null) openVod(activity, sourceId, vod)
+                if (vod != null) openVod(activity, sourceId, vod, startPaused = true)
                 else openCatalog(
                     activity,
                     sourceId,
@@ -182,7 +188,7 @@ object ModeNav {
             AppScreen.CHANNELS -> openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
             AppScreen.STREAMING_SERIES, AppScreen.STREAMING_MOVIE -> {
                 val vod = AppSettings.lastVodPlayback()
-                if (vod != null) openVod(activity, sourceId, vod)
+                if (vod != null) openVod(activity, sourceId, vod, startPaused = true)
                 else openCatalog(
                     activity,
                     sourceId,
