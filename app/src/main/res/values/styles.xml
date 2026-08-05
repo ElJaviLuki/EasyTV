@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TVFacil" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <style name="Theme.TVFacil.Player" parent="Theme.TVFacil">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
+    <style name="Text.Hero" parent="TextAppearance.AppCompat.Display1">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">42sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+
+    <style name="Text.Title" parent="TextAppearance.AppCompat.Title">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="Text.Body" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+
+    <style name="Text.Caption" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+
+    <style name="RowFocusable">
+        <item name="android:background">@drawable/row_background</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
+        <item name="android:paddingStart">28dp</item>
+        <item name="android:paddingEnd">28dp</item>
+        <item name="android:paddingTop">18dp</item>
+        <item name="android:paddingBottom">18dp</item>
+    </style>
+</resources>

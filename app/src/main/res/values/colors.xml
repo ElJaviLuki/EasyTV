@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#12151A</color>
+    <color name="bg_elevated">#1C222B</color>
+    <color name="bg_focus">#2A3340</color>
+    <color name="text_primary">#F2EDE4</color>
+    <color name="text_secondary">#A8B0BA</color>
+    <color name="accent">#E8A54B</color>
+    <color name="accent_dim">#8B6430</color>
+    <color name="divider">#2E3642</color>
+    <color name="player_scrim">#CC0A0C10</color>
+</resources>
