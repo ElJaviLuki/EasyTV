@@ -43,6 +43,7 @@ class PlayerActivity : AppCompatActivity() {
         private const val PROGRESS_TICK_MS = 500L
         private const val NEXT_EPISODE_DELAY_SEC = 10
         private const val CENTER_TRIPLE_WINDOW_MS = 900L
+        private const val PLAY_ICON_FLASH_MS = 700L
     }
 
     private lateinit var binding: ActivityPlayerBinding
@@ -71,6 +72,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val resetCenterPresses = Runnable { centerPressCount = 0 }
+    private val hideTransportIconRunnable = Runnable { clearTransportIcon() }
     private val hideOverlay = Runnable {
         stopProgressTicks()
         binding.overlay.visibility = View.GONE
@@ -156,6 +158,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun playCurrent() {
         dismissEndPrompt()
+        clearTransportIcon()
         binding.infoNumber.text = if (currentNumber > 0) currentNumber.toString() else ""
         binding.nowPlaying.text = currentName
         binding.nowGroup.text = currentGroup
@@ -270,6 +273,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun showEndPrompt() {
         if (endPromptVisible) return
         endPromptVisible = true
+        clearTransportIcon()
         handler.removeCallbacks(hideOverlay)
         stopProgressTicks()
         binding.overlay.visibility = View.GONE
@@ -351,9 +355,46 @@ class PlayerActivity : AppCompatActivity() {
     private fun togglePlayPause() {
         if (endPromptVisible) return
         val exo = player ?: return
+        val willPlay = !exo.isPlaying
         if (exo.isPlaying) exo.pause() else exo.play()
-        if (seekEnabled) updateProgressUi()
+        if (seekEnabled) {
+            updateProgressUi()
+            showTransportIcon(playing = willPlay)
+        }
         showOverlay()
+    }
+
+    private fun showTransportIcon(playing: Boolean) {
+        if (!seekEnabled || endPromptVisible) {
+            clearTransportIcon()
+            return
+        }
+        handler.removeCallbacks(hideTransportIconRunnable)
+        binding.transportIcon.animate().cancel()
+        binding.transportIcon.setImageResource(
+            if (playing) R.drawable.ic_transport_play else R.drawable.ic_transport_pause
+        )
+        binding.transportIcon.alpha = 1f
+        binding.transportIcon.scaleX = 0.86f
+        binding.transportIcon.scaleY = 0.86f
+        binding.transportIcon.visibility = View.VISIBLE
+        binding.transportIcon.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(120L)
+            .start()
+        if (playing) {
+            handler.postDelayed(hideTransportIconRunnable, PLAY_ICON_FLASH_MS)
+        }
+    }
+
+    private fun clearTransportIcon() {
+        handler.removeCallbacks(hideTransportIconRunnable)
+        binding.transportIcon.animate().cancel()
+        binding.transportIcon.visibility = View.GONE
+        binding.transportIcon.alpha = 1f
+        binding.transportIcon.scaleX = 1f
+        binding.transportIcon.scaleY = 1f
     }
 
     private fun seekBy(deltaMs: Long) {
@@ -536,13 +577,19 @@ class PlayerActivity : AppCompatActivity() {
             }
             KeyEvent.KEYCODE_MEDIA_PLAY -> {
                 player?.play()
-                if (seekEnabled) updateProgressUi()
+                if (seekEnabled) {
+                    updateProgressUi()
+                    showTransportIcon(playing = true)
+                }
                 showOverlay()
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_PAUSE -> {
                 player?.pause()
-                if (seekEnabled) updateProgressUi()
+                if (seekEnabled) {
+                    updateProgressUi()
+                    showTransportIcon(playing = false)
+                }
                 showOverlay()
                 return true
             }
@@ -570,6 +617,7 @@ class PlayerActivity : AppCompatActivity() {
         handler.removeCallbacks(hideOverlay)
         handler.removeCallbacks(nextEpisodeTick)
         handler.removeCallbacks(resetCenterPresses)
+        handler.removeCallbacks(hideTransportIconRunnable)
         binding.playerView.player = null
         player?.release()
         player = null

@@ -11,6 +11,15 @@
         android:layout_height="match_parent"
         android:keepScreenOn="true" />
 
+    <ImageView
+        android:id="@+id/transportIcon"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_gravity="center"
+        android:contentDescription="@null"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
+
     <LinearLayout
         android:id="@+id/overlay"
         android:layout_width="match_parent"
