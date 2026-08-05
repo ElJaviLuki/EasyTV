@@ -7,6 +7,7 @@ import android.view.KeyEvent
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -35,6 +36,9 @@ class PlayerActivity : AppCompatActivity() {
 
         private const val SEEK_STEP_MS = 5_000L
         private const val SEEK_HOLD_STEP_MS = 15_000L
+        private const val PROGRESS_MAX = 1000
+        private const val PROGRESS_TICK_MS = 500L
+        private const val NEXT_EPISODE_DELAY_SEC = 10
     }
 
     private lateinit var binding: ActivityPlayerBinding
@@ -48,10 +52,33 @@ class PlayerActivity : AppCompatActivity() {
     private var sourceId: String = ""
     private var zapEnabled: Boolean = false
     private var seekEnabled: Boolean = false
+    private var endPromptVisible: Boolean = false
+    private var nextCountdownSec: Int = NEXT_EPISODE_DELAY_SEC
     private var epgJob: Job? = null
     private val handler = Handler(Looper.getMainLooper())
     private val hideOverlay = Runnable {
+        stopProgressTicks()
         binding.overlay.visibility = View.GONE
+    }
+    private val progressTick = object : Runnable {
+        override fun run() {
+            if (!seekEnabled || endPromptVisible || binding.overlay.visibility != View.VISIBLE) return
+            updateProgressUi()
+            handler.postDelayed(this, PROGRESS_TICK_MS)
+        }
+    }
+    private val nextEpisodeTick = object : Runnable {
+        override fun run() {
+            if (!endPromptVisible || !EpisodeQueue.hasNext()) return
+            nextCountdownSec -= 1
+            if (nextCountdownSec <= 0) {
+                playNextEpisode()
+                return
+            }
+            binding.btnNextEpisode.text =
+                getString(R.string.next_episode_countdown, nextCountdownSec)
+            handler.postDelayed(this, 1_000L)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +100,10 @@ class PlayerActivity : AppCompatActivity() {
             return
         }
 
+        binding.progressBar.visibility = if (seekEnabled) View.VISIBLE else View.GONE
+        binding.btnNextEpisode.setOnClickListener { playNextEpisode() }
+        binding.btnBackToTv.setOnClickListener { goToLiveTv() }
+
         player = ExoPlayer.Builder(this).build().also { exo ->
             binding.playerView.player = exo
             binding.playerView.useController = false
@@ -81,12 +112,24 @@ class PlayerActivity : AppCompatActivity() {
                     binding.nowEpg.text = "Error: ${error.errorCodeName}"
                     showOverlay(permanent = true)
                 }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (seekEnabled && !endPromptVisible) updateProgressUi()
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (seekEnabled && !endPromptVisible) updateProgressUi()
+                    if (playbackState == Player.STATE_ENDED && EpisodeQueue.isActive) {
+                        showEndPrompt()
+                    }
+                }
             })
         }
         playCurrent()
     }
 
     private fun playCurrent() {
+        dismissEndPrompt()
         binding.infoNumber.text = if (currentNumber > 0) currentNumber.toString() else ""
         binding.nowPlaying.text = currentName
         binding.nowGroup.text = currentGroup
@@ -100,12 +143,25 @@ class PlayerActivity : AppCompatActivity() {
             placeholder(R.drawable.ic_channel_placeholder)
             error(R.drawable.ic_channel_placeholder)
         }
+        binding.progressBar.visibility = if (seekEnabled) View.VISIBLE else View.GONE
+        updateProgressUi()
         showOverlay()
         loadEpg()
         val exo = player ?: return
         exo.setMediaItem(MediaItem.fromUri(currentUrl))
         exo.prepare()
         exo.playWhenReady = true
+    }
+
+    private fun applyItem(item: CatalogItem, live: Boolean) {
+        currentUrl = item.url
+        currentName = item.name
+        currentGroup = if (live) item.group else EpisodeQueue.seriesName.ifBlank { item.group }
+        currentNumber = item.number
+        currentLogo = item.logo
+        currentStreamId = item.streamId
+        zapEnabled = live
+        seekEnabled = !live
     }
 
     private fun loadEpg() {
@@ -122,21 +178,131 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    private fun showEndPrompt() {
+        if (endPromptVisible) return
+        endPromptVisible = true
+        handler.removeCallbacks(hideOverlay)
+        stopProgressTicks()
+        binding.overlay.visibility = View.GONE
+
+        val hasNext = EpisodeQueue.hasNext()
+        binding.btnNextEpisode.visibility = if (hasNext) View.VISIBLE else View.GONE
+        binding.endOverlay.visibility = View.VISIBLE
+
+        if (hasNext) {
+            nextCountdownSec = NEXT_EPISODE_DELAY_SEC
+            binding.btnNextEpisode.text =
+                getString(R.string.next_episode_countdown, nextCountdownSec)
+            binding.btnNextEpisode.post { binding.btnNextEpisode.requestFocus() }
+            handler.removeCallbacks(nextEpisodeTick)
+            handler.postDelayed(nextEpisodeTick, 1_000L)
+        } else {
+            binding.btnBackToTv.post { binding.btnBackToTv.requestFocus() }
+        }
+    }
+
+    private fun dismissEndPrompt() {
+        endPromptVisible = false
+        handler.removeCallbacks(nextEpisodeTick)
+        binding.endOverlay.visibility = View.GONE
+        binding.btnNextEpisode.visibility = View.GONE
+        binding.btnNextEpisode.text = getString(R.string.next_episode)
+        binding.btnBackToTv.isEnabled = true
+        binding.btnBackToTv.text = getString(R.string.back_to_tv)
+    }
+
+    private fun playNextEpisode() {
+        val next = EpisodeQueue.advance() ?: return
+        applyItem(next, live = false)
+        playCurrent()
+    }
+
+    private fun goToLiveTv() {
+        if (!binding.btnBackToTv.isEnabled) return
+        handler.removeCallbacks(nextEpisodeTick)
+        binding.btnBackToTv.isEnabled = false
+        binding.btnBackToTv.text = getString(R.string.loading_tv)
+
+        val sid = sourceId.ifBlank { EpisodeQueue.sourceId }
+        val source = PlaylistStore.byId(sid)
+        if (source == null) {
+            binding.btnBackToTv.isEnabled = true
+            binding.btnBackToTv.text = getString(R.string.back_to_tv)
+            finish()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                var live = PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
+                if (live.isEmpty()) {
+                    live = PlaylistRepository.diskCached(applicationContext, source.id, ContentKind.LIVE)
+                }
+                if (live.isEmpty()) {
+                    live = PlaylistRepository.loadCatalog(applicationContext, source, ContentKind.LIVE)
+                }
+                val first = live.firstOrNull { it.url.isNotBlank() }
+                    ?: error("Sin canales")
+                EpisodeQueue.clear()
+                ZapPlaylist.set(live)
+                sourceId = source.id
+                applyItem(first, live = true)
+                playCurrent()
+            } catch (e: Exception) {
+                binding.btnBackToTv.isEnabled = true
+                binding.btnBackToTv.text = getString(R.string.back_to_tv)
+                binding.endTitle.text = getString(R.string.load_error)
+            }
+        }
+    }
+
     private fun togglePlayPause() {
+        if (endPromptVisible) return
         val exo = player ?: return
         if (exo.isPlaying) exo.pause() else exo.play()
-        if (seekEnabled) binding.nowEpg.text = formatPositionHint()
+        if (seekEnabled) updateProgressUi()
         showOverlay()
     }
 
     private fun seekBy(deltaMs: Long) {
+        if (endPromptVisible) return
         val exo = player ?: return
         val duration = exo.duration
-        if (duration <= 0L || duration == androidx.media3.common.C.TIME_UNSET) return
+        if (duration <= 0L || duration == C.TIME_UNSET) return
         val target = (exo.currentPosition + deltaMs).coerceIn(0L, duration)
         exo.seekTo(target)
-        binding.nowEpg.text = formatPositionHint(target, duration)
+        updateProgressUi(target, duration)
         showOverlay()
+    }
+
+    private fun updateProgressUi(
+        positionMs: Long = player?.currentPosition ?: 0L,
+        durationMs: Long = player?.duration ?: 0L
+    ) {
+        if (!seekEnabled) return
+        binding.nowEpg.text = formatPositionHint(positionMs, durationMs)
+        val durationOk = durationMs > 0L && durationMs != C.TIME_UNSET
+        binding.progressBar.progress = if (durationOk) {
+            ((positionMs.toDouble() / durationMs) * PROGRESS_MAX).toInt().coerceIn(0, PROGRESS_MAX)
+        } else {
+            0
+        }
+        val buffered = player?.bufferedPosition ?: 0L
+        binding.progressBar.secondaryProgress = if (durationOk) {
+            ((buffered.toDouble() / durationMs) * PROGRESS_MAX).toInt().coerceIn(0, PROGRESS_MAX)
+        } else {
+            0
+        }
+    }
+
+    private fun startProgressTicks() {
+        if (!seekEnabled || endPromptVisible) return
+        handler.removeCallbacks(progressTick)
+        handler.post(progressTick)
+    }
+
+    private fun stopProgressTicks() {
+        handler.removeCallbacks(progressTick)
     }
 
     private fun seekStepMs(event: KeyEvent?): Long {
@@ -149,7 +315,7 @@ class PlayerActivity : AppCompatActivity() {
         durationMs: Long = player?.duration?.takeIf { it > 0 } ?: 0L
     ): String {
         val pos = formatMs(positionMs)
-        return if (durationMs > 0L && durationMs != androidx.media3.common.C.TIME_UNSET) {
+        return if (durationMs > 0L && durationMs != C.TIME_UNSET) {
             val playing = player?.isPlaying == true
             val state = if (playing) "" else "  ·  Pausado"
             "$pos / ${formatMs(durationMs)}$state"
@@ -171,19 +337,17 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun zap(delta: Int) {
-        if (!zapEnabled) return
+        if (!zapEnabled || endPromptVisible) return
         val next = ZapPlaylist.neighbor(currentUrl, delta) ?: return
-        currentUrl = next.url
-        currentName = next.name
-        currentGroup = next.group
-        currentNumber = next.number
-        currentLogo = next.logo
-        currentStreamId = next.streamId
+        applyItem(next, live = true)
         playCurrent()
     }
 
     private fun showOverlay(permanent: Boolean = false) {
+        if (endPromptVisible) return
         binding.overlay.visibility = View.VISIBLE
+        if (seekEnabled) updateProgressUi()
+        startProgressTicks()
         handler.removeCallbacks(hideOverlay)
         if (!permanent) {
             handler.postDelayed(hideOverlay, 3500)
@@ -191,6 +355,22 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (endPromptVisible) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_BACK -> {
+                    goToLiveTv()
+                    return true
+                }
+                KeyEvent.KEYCODE_CHANNEL_UP,
+                KeyEvent.KEYCODE_CHANNEL_DOWN,
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                KeyEvent.KEYCODE_MEDIA_PLAY,
+                KeyEvent.KEYCODE_MEDIA_PAUSE -> return true
+            }
+            // Let DPAD move focus between end-prompt buttons.
+            return super.onKeyDown(keyCode, event)
+        }
+
         when (keyCode) {
             KeyEvent.KEYCODE_CHANNEL_UP -> {
                 zap(+1)
@@ -224,7 +404,6 @@ class PlayerActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_INFO,
             KeyEvent.KEYCODE_DPAD_UP,
             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (seekEnabled) binding.nowEpg.text = formatPositionHint()
                 showOverlay()
                 return true
             }
@@ -234,13 +413,13 @@ class PlayerActivity : AppCompatActivity() {
             }
             KeyEvent.KEYCODE_MEDIA_PLAY -> {
                 player?.play()
-                if (seekEnabled) binding.nowEpg.text = formatPositionHint()
+                if (seekEnabled) updateProgressUi()
                 showOverlay()
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_PAUSE -> {
                 player?.pause()
-                if (seekEnabled) binding.nowEpg.text = formatPositionHint()
+                if (seekEnabled) updateProgressUi()
                 showOverlay()
                 return true
             }
@@ -259,7 +438,9 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         epgJob?.cancel()
+        stopProgressTicks()
         handler.removeCallbacks(hideOverlay)
+        handler.removeCallbacks(nextEpisodeTick)
         binding.playerView.player = null
         player?.release()
         player = null

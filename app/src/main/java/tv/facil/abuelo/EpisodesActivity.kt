@@ -59,11 +59,14 @@ class EpisodesActivity : AppCompatActivity() {
             epgSource = null,
             showLiveEpg = false
         ) { item ->
+            EpisodeQueue.set(source.id, seriesName, allItems, item.url)
             startActivity(
                 Intent(this, PlayerActivity::class.java)
                     .putExtra(PlayerActivity.EXTRA_URL, item.url)
                     .putExtra(PlayerActivity.EXTRA_NAME, item.name)
                     .putExtra(PlayerActivity.EXTRA_GROUP, seriesName)
+                    .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
+                    .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
                     .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, true)
             )
         }

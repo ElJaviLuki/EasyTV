@@ -17,58 +17,116 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:background="@color/player_scrim"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="28dp"
+        android:orientation="vertical"
+        android:paddingHorizontal="28dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="28dp"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="10dp"
+            android:layout_marginBottom="16dp"
+            android:max="1000"
+            android:progress="0"
+            android:progressDrawable="@drawable/player_progress"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/infoNumber"
+                android:layout_width="72dp"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/Text.Title"
+                android:textColor="@color/accent" />
+
+            <ImageView
+                android:id="@+id/infoLogo"
+                android:layout_width="96dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="20dp"
+                android:contentDescription="@null"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_channel_placeholder" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/nowPlaying"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textAppearance="@style/Text.Title" />
+
+                <TextView
+                    android:id="@+id/nowEpg"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textAppearance="@style/Text.Caption" />
+
+                <TextView
+                    android:id="@+id/nowGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textAppearance="@style/Text.Caption" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/endOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/player_scrim"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="48dp"
         android:visibility="gone">
 
         <TextView
-            android:id="@+id/infoNumber"
-            android:layout_width="72dp"
+            android:id="@+id/endTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="36dp"
+            android:text="@string/episode_ended"
+            android:textAppearance="@style/Text.Hero" />
+
+        <TextView
+            android:id="@+id/btnNextEpisode"
+            style="@style/RowFocusable"
+            android:layout_width="480dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:gravity="center"
+            android:text="@string/next_episode"
             android:textAppearance="@style/Text.Title"
-            android:textColor="@color/accent" />
+            android:visibility="gone" />
 
-        <ImageView
-            android:id="@+id/infoLogo"
-            android:layout_width="96dp"
-            android:layout_height="64dp"
-            android:layout_marginEnd="20dp"
-            android:contentDescription="@null"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_channel_placeholder" />
-
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/btnBackToTv"
+            style="@style/RowFocusable"
+            android:layout_width="480dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/nowPlaying"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textAppearance="@style/Text.Title" />
-
-            <TextView
-                android:id="@+id/nowEpg"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textAppearance="@style/Text.Caption" />
-
-            <TextView
-                android:id="@+id/nowGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textAppearance="@style/Text.Caption" />
-        </LinearLayout>
+            android:gravity="center"
+            android:text="@string/back_to_tv"
+            android:textAppearance="@style/Text.Title" />
     </LinearLayout>
 </FrameLayout>

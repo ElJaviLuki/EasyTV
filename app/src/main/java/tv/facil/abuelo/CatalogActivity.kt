@@ -65,6 +65,7 @@ class CatalogActivity : AppCompatActivity() {
                     )
                 }
                 item.url.isNotBlank() -> {
+                    EpisodeQueue.clear()
                     if (kind == ContentKind.LIVE) {
                         ZapPlaylist.set(visibleItems())
                     } else {
