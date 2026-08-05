@@ -25,18 +25,28 @@ object ModeNav {
         }
         return when (keyCode) {
             KeyEvent.KEYCODE_PROG_RED -> {
+                if (activity is PlayerActivity && activity.isLiveZap) return true
                 openTv(activity, sourceId)
                 true
             }
             KeyEvent.KEYCODE_PROG_GREEN -> {
+                // Series catalog (also from series streaming → leave player to catalog).
+                if (activity is CatalogActivity && activity.currentKind == ContentKind.SERIES) {
+                    return true
+                }
                 openCatalog(activity, sourceId, ContentKind.SERIES)
                 true
             }
             KeyEvent.KEYCODE_PROG_YELLOW -> {
+                // Movies catalog (also from movie streaming → leave player to catalog).
+                if (activity is CatalogActivity && activity.currentKind == ContentKind.MOVIES) {
+                    return true
+                }
                 openCatalog(activity, sourceId, ContentKind.MOVIES)
                 true
             }
             KeyEvent.KEYCODE_PROG_BLUE -> {
+                if (activity is SettingsActivity) return true
                 openSettings(activity, sourceId, currentScreenFor(activity))
                 true
             }
@@ -67,6 +77,15 @@ object ModeNav {
         kind: ContentKind,
         fromTv: Boolean = false
     ) {
+        if (activity is CatalogActivity && activity.currentKind == kind) {
+            AppSettings.lastSourceId = sourceId
+            AppSettings.lastScreen = when (kind) {
+                ContentKind.LIVE -> AppScreen.CHANNELS
+                ContentKind.SERIES -> AppScreen.SERIES
+                ContentKind.MOVIES -> AppScreen.MOVIES
+            }
+            return
+        }
         AppSettings.lastSourceId = sourceId
         AppSettings.lastScreen = when (kind) {
             ContentKind.LIVE -> AppScreen.CHANNELS
