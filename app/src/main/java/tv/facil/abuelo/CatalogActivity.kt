@@ -60,11 +60,17 @@ class CatalogActivity : AppCompatActivity() {
                     )
                 }
                 item.url.isNotBlank() -> {
+                    if (kind == ContentKind.LIVE) {
+                        ZapPlaylist.set(visibleItems())
+                    } else {
+                        ZapPlaylist.clear()
+                    }
                     startActivity(
                         Intent(this, PlayerActivity::class.java)
                             .putExtra(PlayerActivity.EXTRA_URL, item.url)
                             .putExtra(PlayerActivity.EXTRA_NAME, item.name)
                             .putExtra(PlayerActivity.EXTRA_GROUP, item.group)
+                            .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, kind == ContentKind.LIVE)
                     )
                 }
             }
@@ -117,9 +123,12 @@ class CatalogActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderList() {
-        val filtered = if (selectedCategory == "Todas") allItems
+    private fun visibleItems(): List<CatalogItem> =
+        if (selectedCategory == "Todas") allItems
         else allItems.filter { it.group == selectedCategory }
+
+    private fun renderList() {
+        val filtered = visibleItems()
         catalogAdapter.submit(filtered)
         if (filtered.isNotEmpty()) {
             binding.channelList.post {

@@ -17,10 +17,16 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_URL = "url"
         const val EXTRA_NAME = "name"
         const val EXTRA_GROUP = "group"
+        /** When true, CH+/CH- zap within [ZapPlaylist]. */
+        const val EXTRA_ZAP_ENABLED = "zap_enabled"
     }
 
     private lateinit var binding: ActivityPlayerBinding
     private var player: ExoPlayer? = null
+    private var currentUrl: String = ""
+    private var currentName: String = ""
+    private var currentGroup: String = ""
+    private var zapEnabled: Boolean = false
     private val handler = Handler(Looper.getMainLooper())
     private val hideOverlay = Runnable {
         binding.overlay.visibility = View.GONE
@@ -31,32 +37,45 @@ class PlayerActivity : AppCompatActivity() {
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val url = intent.getStringExtra(EXTRA_URL).orEmpty()
-        val name = intent.getStringExtra(EXTRA_NAME).orEmpty()
-        val group = intent.getStringExtra(EXTRA_GROUP).orEmpty()
-        if (url.isBlank()) {
+        currentUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
+        currentName = intent.getStringExtra(EXTRA_NAME).orEmpty()
+        currentGroup = intent.getStringExtra(EXTRA_GROUP).orEmpty()
+        zapEnabled = intent.getBooleanExtra(EXTRA_ZAP_ENABLED, false)
+        if (currentUrl.isBlank()) {
             finish()
             return
         }
 
-        binding.nowPlaying.text = name
-        binding.nowGroup.text = group
-        showOverlay()
-
         player = ExoPlayer.Builder(this).build().also { exo ->
             binding.playerView.player = exo
             binding.playerView.useController = false
-            exo.setMediaItem(MediaItem.fromUri(url))
-            exo.prepare()
-            exo.playWhenReady = true
             exo.addListener(object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
-                    binding.nowPlaying.text = name
                     binding.nowGroup.text = "Error: ${error.errorCodeName}"
                     showOverlay(permanent = true)
                 }
             })
         }
+        playCurrent()
+    }
+
+    private fun playCurrent() {
+        binding.nowPlaying.text = currentName
+        binding.nowGroup.text = currentGroup
+        showOverlay()
+        val exo = player ?: return
+        exo.setMediaItem(MediaItem.fromUri(currentUrl))
+        exo.prepare()
+        exo.playWhenReady = true
+    }
+
+    private fun zap(delta: Int) {
+        if (!zapEnabled) return
+        val next = ZapPlaylist.neighbor(currentUrl, delta) ?: return
+        currentUrl = next.url
+        currentName = next.name
+        currentGroup = next.group
+        playCurrent()
     }
 
     private fun showOverlay(permanent: Boolean = false) {
@@ -69,6 +88,14 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         when (keyCode) {
+            KeyEvent.KEYCODE_CHANNEL_UP -> {
+                zap(+1)
+                return true
+            }
+            KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                zap(-1)
+                return true
+            }
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_INFO,
