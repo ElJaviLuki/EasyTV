@@ -164,11 +164,7 @@ object ModeNav {
             positionMs = playback.positionMs
         )
         activity.lifecycleScope.launch {
-            if (playback.seriesId != null) {
-                restoreEpisodeQueue(activity, sourceId, playback)
-            } else {
-                EpisodeQueue.clear()
-            }
+            EpisodeQueue.clear()
             activity.startActivity(
                 Intent(activity, PlayerActivity::class.java)
                     .putExtra(PlayerActivity.EXTRA_URL, playback.url)
@@ -186,6 +182,10 @@ object ModeNav {
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             )
             if (activity !is MainActivity) activity.finish()
+            // Restore next-episode queue in background (don't block opening the player).
+            if (playback.seriesId != null) {
+                restoreEpisodeQueue(activity, sourceId, playback)
+            }
         }
     }
 

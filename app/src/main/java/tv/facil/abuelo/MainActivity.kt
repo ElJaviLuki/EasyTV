@@ -24,12 +24,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (savedInstanceState == null && ModeNav.tryResume(this)) {
-            binding.subtitle.text = getString(R.string.resuming)
-            // Keep Main under the resumed screen so BACK from first entry can still change list.
-            return
-        }
-
         binding.subtitle.text = getString(R.string.choose_server)
         binding.serverList.layoutManager = LinearLayoutManager(this)
         binding.serverList.adapter = ServerAdapter(sources) { source ->
@@ -38,6 +32,18 @@ class MainActivity : AppCompatActivity() {
                 Intent(this, SectionActivity::class.java)
                     .putExtra(SectionActivity.EXTRA_SOURCE_ID, source.id)
             )
+        }
+
+        // Resume last screen on top; keep this list underneath for Back.
+        if (savedInstanceState == null) {
+            ModeNav.tryResume(this)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (PlaylistStore.sources().isNotEmpty()) {
+            binding.subtitle.text = getString(R.string.choose_server)
         }
     }
 }
