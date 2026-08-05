@@ -42,6 +42,7 @@
         <activity
             android:name=".CatalogActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.TVFacil" />
 
         <activity

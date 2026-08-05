@@ -130,9 +130,12 @@ object ModeNav {
                 .putExtra(CatalogActivity.EXTRA_SOURCE_ID, sourceId)
                 .putExtra(CatalogActivity.EXTRA_KIND, kind.name)
                 .putExtra(EXTRA_FROM_TV, fromTv || kind == ContentKind.LIVE)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         )
-        if (activity !is MainActivity) activity.finish()
+        // Reuse Catalog via onNewIntent; don't finish it. Finish player/other screens.
+        if (activity !is MainActivity && activity !is CatalogActivity) {
+            activity.finish()
+        }
     }
 
     fun openTv(activity: AppCompatActivity, sourceId: String) {

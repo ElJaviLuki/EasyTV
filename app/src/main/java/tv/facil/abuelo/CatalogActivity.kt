@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import tv.facil.abuelo.databinding.ActivityChannelsBinding
@@ -27,16 +28,58 @@ class CatalogActivity : AppCompatActivity() {
     private var selectedCategory: String = "Todas"
     private lateinit var categoryAdapter: CategoryAdapter
     private lateinit var catalogAdapter: CatalogAdapter
+    private var loadJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityChannelsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        source = PlaylistStore.byId(intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()) ?: run {
+        if (!bindFromIntent(intent)) {
             finish()
             return
         }
+
+        categoryAdapter = CategoryAdapter(emptyList(), selectedCategory) { category ->
+            selectedCategory = category
+            categoryAdapter.submit(categoryNames(), selectedCategory)
+            renderList()
+        }
+        binding.categoryList.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.categoryList.adapter = categoryAdapter
+
+        catalogAdapter = CatalogAdapter(
+            scope = lifecycleScope,
+            items = emptyList(),
+            epgSource = source,
+            showLiveEpg = currentKind == ContentKind.LIVE
+        ) { item -> onItemClick(item) }
+        binding.channelList.layoutManager = LinearLayoutManager(this)
+        binding.channelList.adapter = catalogAdapter
+
+        showCacheThenRefresh()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!bindFromIntent(intent)) {
+            finish()
+            return
+        }
+        catalogAdapter = CatalogAdapter(
+            scope = lifecycleScope,
+            items = emptyList(),
+            epgSource = source,
+            showLiveEpg = currentKind == ContentKind.LIVE
+        ) { item -> onItemClick(item) }
+        binding.channelList.adapter = catalogAdapter
+        showCacheThenRefresh()
+    }
+
+    private fun bindFromIntent(intent: Intent): Boolean {
+        source = PlaylistStore.byId(intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()) ?: return false
         currentKind = ContentKind.fromExtra(intent.getStringExtra(EXTRA_KIND))
         fromTv = intent.getBooleanExtra(ModeNav.EXTRA_FROM_TV, currentKind == ContentKind.LIVE)
 
@@ -53,77 +96,60 @@ class CatalogActivity : AppCompatActivity() {
             else -> getString(R.string.back_section)
         }
         binding.backButton.setOnClickListener { navigateBack() }
+        return true
+    }
 
-        categoryAdapter = CategoryAdapter(emptyList(), selectedCategory) { category ->
-            selectedCategory = category
-            categoryAdapter.submit(categoryNames(), selectedCategory)
-            renderList()
-        }
-        binding.categoryList.layoutManager =
-            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        binding.categoryList.adapter = categoryAdapter
-
-        catalogAdapter = CatalogAdapter(
-            scope = lifecycleScope,
-            items = emptyList(),
-            epgSource = source,
-            showLiveEpg = currentKind == ContentKind.LIVE
-        ) { item ->
-            when {
-                currentKind == ContentKind.SERIES && item.seriesId != null -> {
-                    startActivity(
-                        Intent(this, EpisodesActivity::class.java)
-                            .putExtra(EpisodesActivity.EXTRA_SOURCE_ID, source.id)
-                            .putExtra(EpisodesActivity.EXTRA_SERIES_ID, item.seriesId)
-                            .putExtra(EpisodesActivity.EXTRA_SERIES_NAME, item.name)
+    private fun onItemClick(item: CatalogItem) {
+        when {
+            currentKind == ContentKind.SERIES && item.seriesId != null -> {
+                startActivity(
+                    Intent(this, EpisodesActivity::class.java)
+                        .putExtra(EpisodesActivity.EXTRA_SOURCE_ID, source.id)
+                        .putExtra(EpisodesActivity.EXTRA_SERIES_ID, item.seriesId)
+                        .putExtra(EpisodesActivity.EXTRA_SERIES_NAME, item.name)
+                )
+            }
+            item.url.isNotBlank() -> {
+                if (currentKind == ContentKind.LIVE) {
+                    EpisodeQueue.clear()
+                    ZapPlaylist.set(
+                        PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
+                            .ifEmpty { allItems }
+                            .ifEmpty { visibleItems() }
                     )
-                }
-                item.url.isNotBlank() -> {
-                    if (currentKind == ContentKind.LIVE) {
-                        EpisodeQueue.clear()
-                        ZapPlaylist.set(
-                            PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
-                                .ifEmpty { allItems }
-                                .ifEmpty { visibleItems() }
+                    AppSettings.saveLastLive(item)
+                    AppSettings.lastScreen = AppScreen.TV
+                    startActivity(
+                        Intent(this, PlayerActivity::class.java)
+                            .putExtra(PlayerActivity.EXTRA_URL, item.url)
+                            .putExtra(PlayerActivity.EXTRA_NAME, item.name)
+                            .putExtra(PlayerActivity.EXTRA_GROUP, item.group)
+                            .putExtra(PlayerActivity.EXTRA_NUMBER, item.number)
+                            .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
+                            .putExtra(PlayerActivity.EXTRA_STREAM_ID, item.streamId ?: -1)
+                            .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
+                            .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, true)
+                            .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, false)
+                    )
+                    finish()
+                } else {
+                    ModeNav.openVod(
+                        this,
+                        source.id,
+                        VodPlayback(
+                            url = item.url,
+                            name = item.name,
+                            group = item.group,
+                            logo = item.logo,
+                            number = item.number,
+                            seriesId = null,
+                            seriesName = null,
+                            positionMs = 0L
                         )
-                        AppSettings.saveLastLive(item)
-                        AppSettings.lastScreen = AppScreen.TV
-                        startActivity(
-                            Intent(this, PlayerActivity::class.java)
-                                .putExtra(PlayerActivity.EXTRA_URL, item.url)
-                                .putExtra(PlayerActivity.EXTRA_NAME, item.name)
-                                .putExtra(PlayerActivity.EXTRA_GROUP, item.group)
-                                .putExtra(PlayerActivity.EXTRA_NUMBER, item.number)
-                                .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
-                                .putExtra(PlayerActivity.EXTRA_STREAM_ID, item.streamId ?: -1)
-                                .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
-                                .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, true)
-                                .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, false)
-                        )
-                        finish()
-                    } else {
-                        ModeNav.openVod(
-                            this,
-                            source.id,
-                            VodPlayback(
-                                url = item.url,
-                                name = item.name,
-                                group = item.group,
-                                logo = item.logo,
-                                number = item.number,
-                                seriesId = null,
-                                seriesName = null,
-                                positionMs = 0L
-                            )
-                        )
-                    }
+                    )
                 }
             }
         }
-        binding.channelList.layoutManager = LinearLayoutManager(this)
-        binding.channelList.adapter = catalogAdapter
-
-        showCacheThenRefresh()
     }
 
     private fun navigateBack() {
@@ -147,7 +173,8 @@ class CatalogActivity : AppCompatActivity() {
     }
 
     private fun showCacheThenRefresh() {
-        lifecycleScope.launch {
+        loadJob?.cancel()
+        loadJob = lifecycleScope.launch {
             val cached = withContext(Dispatchers.IO) {
                 PlaylistRepository.memoryCached(source.id, currentKind)
                     .ifEmpty { PlaylistRepository.diskCached(this@CatalogActivity, source.id, currentKind) }
@@ -155,6 +182,8 @@ class CatalogActivity : AppCompatActivity() {
             if (cached.isNotEmpty()) {
                 applyItems(cached, "${cached.size} ${currentKind.loadingLabel} (caché) · actualizando…")
             } else {
+                allItems = emptyList()
+                catalogAdapter.submit(emptyList())
                 binding.loading.visibility = View.VISIBLE
                 binding.status.text = getString(R.string.loading_kind, currentKind.loadingLabel)
             }
