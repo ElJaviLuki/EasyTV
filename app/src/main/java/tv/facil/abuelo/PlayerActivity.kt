@@ -15,6 +15,9 @@ import coil.load
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import tv.facil.abuelo.databinding.ActivityPlayerBinding
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+import kotlin.math.max
 
 class PlayerActivity : AppCompatActivity() {
     companion object {
@@ -27,6 +30,11 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_SOURCE_ID = "source_id"
         /** When true, CH+/CH- zap within [ZapPlaylist]. */
         const val EXTRA_ZAP_ENABLED = "zap_enabled"
+        /** When true, DPAD left/right seek (series/movies). */
+        const val EXTRA_SEEK_ENABLED = "seek_enabled"
+
+        private const val SEEK_STEP_MS = 5_000L
+        private const val SEEK_HOLD_STEP_MS = 15_000L
     }
 
     private lateinit var binding: ActivityPlayerBinding
@@ -39,6 +47,7 @@ class PlayerActivity : AppCompatActivity() {
     private var currentStreamId: Int? = null
     private var sourceId: String = ""
     private var zapEnabled: Boolean = false
+    private var seekEnabled: Boolean = false
     private var epgJob: Job? = null
     private val handler = Handler(Looper.getMainLooper())
     private val hideOverlay = Runnable {
@@ -58,6 +67,7 @@ class PlayerActivity : AppCompatActivity() {
         currentStreamId = intent.getIntExtra(EXTRA_STREAM_ID, -1).takeIf { it > 0 }
         sourceId = intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()
         zapEnabled = intent.getBooleanExtra(EXTRA_ZAP_ENABLED, false)
+        seekEnabled = intent.getBooleanExtra(EXTRA_SEEK_ENABLED, false)
         if (currentUrl.isBlank()) {
             finish()
             return
@@ -80,7 +90,11 @@ class PlayerActivity : AppCompatActivity() {
         binding.infoNumber.text = if (currentNumber > 0) currentNumber.toString() else ""
         binding.nowPlaying.text = currentName
         binding.nowGroup.text = currentGroup
-        binding.nowEpg.text = if (zapEnabled) "Cargando guía…" else ""
+        binding.nowEpg.text = when {
+            zapEnabled -> "Cargando guía…"
+            seekEnabled -> formatPositionHint()
+            else -> ""
+        }
         binding.infoLogo.load(currentLogo) {
             crossfade(true)
             placeholder(R.drawable.ic_channel_placeholder)
@@ -99,12 +113,60 @@ class PlayerActivity : AppCompatActivity() {
         val streamId = currentStreamId
         val source = PlaylistStore.byId(sourceId)
         if (!zapEnabled || streamId == null || source == null) {
-            binding.nowEpg.text = ""
+            if (!seekEnabled) binding.nowEpg.text = ""
             return
         }
         epgJob = lifecycleScope.launch {
             val now = EpgRepository.nowPlaying(source, streamId)
             binding.nowEpg.text = now?.scheduleLine().orEmpty()
+        }
+    }
+
+    private fun togglePlayPause() {
+        val exo = player ?: return
+        if (exo.isPlaying) exo.pause() else exo.play()
+        if (seekEnabled) binding.nowEpg.text = formatPositionHint()
+        showOverlay()
+    }
+
+    private fun seekBy(deltaMs: Long) {
+        val exo = player ?: return
+        val duration = exo.duration
+        if (duration <= 0L || duration == androidx.media3.common.C.TIME_UNSET) return
+        val target = (exo.currentPosition + deltaMs).coerceIn(0L, duration)
+        exo.seekTo(target)
+        binding.nowEpg.text = formatPositionHint(target, duration)
+        showOverlay()
+    }
+
+    private fun seekStepMs(event: KeyEvent?): Long {
+        val repeat = event?.repeatCount ?: 0
+        return if (repeat == 0) SEEK_STEP_MS else SEEK_HOLD_STEP_MS
+    }
+
+    private fun formatPositionHint(
+        positionMs: Long = player?.currentPosition ?: 0L,
+        durationMs: Long = player?.duration?.takeIf { it > 0 } ?: 0L
+    ): String {
+        val pos = formatMs(positionMs)
+        return if (durationMs > 0L && durationMs != androidx.media3.common.C.TIME_UNSET) {
+            val playing = player?.isPlaying == true
+            val state = if (playing) "" else "  ·  Pausado"
+            "$pos / ${formatMs(durationMs)}$state"
+        } else {
+            pos
+        }
+    }
+
+    private fun formatMs(ms: Long): String {
+        val totalSec = max(0L, TimeUnit.MILLISECONDS.toSeconds(ms))
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        val s = totalSec % 60
+        return if (h > 0) {
+            String.format(Locale.getDefault(), "%d:%02d:%02d", h, m, s)
+        } else {
+            String.format(Locale.getDefault(), "%02d:%02d", m, s)
         }
     }
 
@@ -138,20 +200,47 @@ class PlayerActivity : AppCompatActivity() {
                 zap(-1)
                 return true
             }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (seekEnabled) {
+                    seekBy(seekStepMs(event))
+                    return true
+                }
+            }
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                if (seekEnabled) {
+                    seekBy(-seekStepMs(event))
+                    return true
+                }
+            }
             KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_ENTER -> {
+                if (seekEnabled) {
+                    togglePlayPause()
+                } else {
+                    showOverlay()
+                }
+                return true
+            }
             KeyEvent.KEYCODE_INFO,
             KeyEvent.KEYCODE_DPAD_UP,
             KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (seekEnabled) binding.nowEpg.text = formatPositionHint()
                 showOverlay()
                 return true
             }
-            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-            KeyEvent.KEYCODE_MEDIA_PLAY,
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                togglePlayPause()
+                return true
+            }
+            KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                player?.play()
+                if (seekEnabled) binding.nowEpg.text = formatPositionHint()
+                showOverlay()
+                return true
+            }
             KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                player?.let {
-                    if (it.isPlaying) it.pause() else it.play()
-                }
+                player?.pause()
+                if (seekEnabled) binding.nowEpg.text = formatPositionHint()
                 showOverlay()
                 return true
             }

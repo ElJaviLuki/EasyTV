@@ -80,6 +80,7 @@ class CatalogActivity : AppCompatActivity() {
                             .putExtra(PlayerActivity.EXTRA_STREAM_ID, item.streamId ?: -1)
                             .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
                             .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, kind == ContentKind.LIVE)
+                            .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, kind != ContentKind.LIVE)
                     )
                 }
             }

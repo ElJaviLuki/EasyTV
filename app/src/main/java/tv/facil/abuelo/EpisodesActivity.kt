@@ -64,6 +64,7 @@ class EpisodesActivity : AppCompatActivity() {
                     .putExtra(PlayerActivity.EXTRA_URL, item.url)
                     .putExtra(PlayerActivity.EXTRA_NAME, item.name)
                     .putExtra(PlayerActivity.EXTRA_GROUP, seriesName)
+                    .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, true)
             )
         }
         binding.channelList.layoutManager = LinearLayoutManager(this)
