@@ -53,7 +53,6 @@ class CatalogActivity : AppCompatActivity() {
             else -> getString(R.string.back_section)
         }
         binding.backButton.setOnClickListener { navigateBack() }
-        binding.status.text = getString(R.string.color_legend)
 
         categoryAdapter = CategoryAdapter(emptyList(), selectedCategory) { category ->
             selectedCategory = category
@@ -128,7 +127,7 @@ class CatalogActivity : AppCompatActivity() {
     private fun applyItems(items: List<CatalogItem>, status: String) {
         allItems = items
         binding.loading.visibility = View.GONE
-        binding.status.text = "$status\n${getString(R.string.color_legend)}"
+        binding.status.text = status
         selectedCategory = "Todas"
         categoryAdapter.submit(categoryNames(), selectedCategory)
         renderList()
@@ -159,8 +158,7 @@ class CatalogActivity : AppCompatActivity() {
                     binding.backButton.requestFocus()
                 } else {
                     binding.status.text =
-                        "${cached.size} ${currentKind.loadingLabel} (caché) · sin red\n" +
-                            getString(R.string.color_legend)
+                        "${cached.size} ${currentKind.loadingLabel} (caché) · sin red"
                 }
             }
         }

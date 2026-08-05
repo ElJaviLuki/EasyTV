@@ -30,7 +30,7 @@ class SettingsActivity : AppCompatActivity() {
         AppSettings.lastScreen = AppScreen.SETTINGS
 
         binding.title.text = getString(R.string.settings_title)
-        binding.subtitle.text = getString(R.string.settings_hint)
+        binding.subtitle.visibility = android.view.View.GONE
         refreshZapToggle()
         binding.toggleZapWrap.setOnClickListener {
             AppSettings.zapWrapAround = !AppSettings.zapWrapAround

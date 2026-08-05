@@ -21,8 +21,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="@string/settings_hint"
-        android:textAppearance="@style/Text.Caption" />
+        android:textAppearance="@style/Text.Caption"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/toggleZapWrap"
@@ -31,14 +31,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="36dp"
         android:textAppearance="@style/Text.Title" />
-
-    <TextView
-        android:id="@+id/colorLegend"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
-        android:text="@string/color_legend"
-        android:textAppearance="@style/Text.Caption" />
 
     <TextView
         android:id="@+id/backButton"

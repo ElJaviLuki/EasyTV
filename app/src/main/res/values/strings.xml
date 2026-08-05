@@ -20,9 +20,7 @@
     <string name="back_to_tv">Volver a TV</string>
     <string name="loading_tv">Cargando TV…</string>
     <string name="settings_title">Configuración</string>
-    <string name="settings_hint">Atrás vuelve a donde estabas. Azul abre esta pantalla.</string>
     <string name="settings_zap_wrap_on">CH+/CH−: circular al llegar al final · Activado</string>
     <string name="settings_zap_wrap_off">CH+/CH−: circular al llegar al final · Desactivado</string>
-    <string name="color_legend">Rojo: TV · Verde: Series · Amarillo: Películas · Azul: Configuración\nEn TV: 3× OK abre el catálogo de canales</string>
     <string name="resuming">Reanudando…</string>
 </resources>
