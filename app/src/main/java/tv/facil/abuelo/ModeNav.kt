@@ -30,19 +30,11 @@ object ModeNav {
                 true
             }
             KeyEvent.KEYCODE_PROG_GREEN -> {
-                // Series catalog (also from series streaming → leave player to catalog).
-                if (activity is CatalogActivity && activity.currentKind == ContentKind.SERIES) {
-                    return true
-                }
-                openCatalog(activity, sourceId, ContentKind.SERIES)
+                openSeries(activity, sourceId)
                 true
             }
             KeyEvent.KEYCODE_PROG_YELLOW -> {
-                // Movies catalog (also from movie streaming → leave player to catalog).
-                if (activity is CatalogActivity && activity.currentKind == ContentKind.MOVIES) {
-                    return true
-                }
-                openCatalog(activity, sourceId, ContentKind.MOVIES)
+                openMovies(activity, sourceId)
                 true
             }
             KeyEvent.KEYCODE_PROG_BLUE -> {
@@ -71,6 +63,32 @@ object ModeNav {
         else -> AppSettings.lastScreen
     }
 
+    fun openSeries(activity: AppCompatActivity, sourceId: String) {
+        if (AppSettings.lastSeriesHub == AppScreen.STREAMING_SERIES) {
+            if (activity is PlayerActivity && activity.isSeriesVod) return
+            val vod = AppSettings.lastSeriesVod()
+            if (vod != null) {
+                openVod(activity, sourceId, vod, startPaused = true)
+                return
+            }
+        }
+        if (activity is CatalogActivity && activity.currentKind == ContentKind.SERIES) return
+        openCatalog(activity, sourceId, ContentKind.SERIES)
+    }
+
+    fun openMovies(activity: AppCompatActivity, sourceId: String) {
+        if (AppSettings.lastMoviesHub == AppScreen.STREAMING_MOVIE) {
+            if (activity is PlayerActivity && activity.isMovieVod) return
+            val vod = AppSettings.lastMovieVod()
+            if (vod != null) {
+                openVod(activity, sourceId, vod, startPaused = true)
+                return
+            }
+        }
+        if (activity is CatalogActivity && activity.currentKind == ContentKind.MOVIES) return
+        openCatalog(activity, sourceId, ContentKind.MOVIES)
+    }
+
     fun openCatalog(
         activity: AppCompatActivity,
         sourceId: String,
@@ -89,8 +107,14 @@ object ModeNav {
         AppSettings.lastSourceId = sourceId
         AppSettings.lastScreen = when (kind) {
             ContentKind.LIVE -> AppScreen.CHANNELS
-            ContentKind.SERIES -> AppScreen.SERIES
-            ContentKind.MOVIES -> AppScreen.MOVIES
+            ContentKind.SERIES -> {
+                AppSettings.lastSeriesHub = AppScreen.SERIES
+                AppScreen.SERIES
+            }
+            ContentKind.MOVIES -> {
+                AppSettings.lastMoviesHub = AppScreen.MOVIES
+                AppScreen.MOVIES
+            }
         }
         activity.startActivity(
             Intent(activity, CatalogActivity::class.java)
@@ -183,7 +207,11 @@ object ModeNav {
             AppScreen.MOVIES -> openCatalog(activity, sourceId, ContentKind.MOVIES)
             AppScreen.CHANNELS -> openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
             AppScreen.STREAMING_SERIES, AppScreen.STREAMING_MOVIE -> {
-                val vod = AppSettings.lastVodPlayback()
+                val vod = if (dest == AppScreen.STREAMING_SERIES) {
+                    AppSettings.lastSeriesVod()
+                } else {
+                    AppSettings.lastMovieVod()
+                }
                 if (vod != null) openVod(activity, sourceId, vod, startPaused = true)
                 else openCatalog(
                     activity,
@@ -206,7 +234,11 @@ object ModeNav {
             AppScreen.MOVIES -> openCatalog(activity, sourceId, ContentKind.MOVIES)
             AppScreen.CHANNELS -> openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
             AppScreen.STREAMING_SERIES, AppScreen.STREAMING_MOVIE -> {
-                val vod = AppSettings.lastVodPlayback()
+                val vod = if (AppSettings.lastScreen == AppScreen.STREAMING_SERIES) {
+                    AppSettings.lastSeriesVod()
+                } else {
+                    AppSettings.lastMovieVod()
+                }
                 if (vod != null) openVod(activity, sourceId, vod, startPaused = true)
                 else openCatalog(
                     activity,
