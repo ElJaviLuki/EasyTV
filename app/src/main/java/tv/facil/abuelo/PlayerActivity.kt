@@ -1,5 +1,6 @@
 package tv.facil.abuelo
 
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -105,33 +106,11 @@ class PlayerActivity : AppCompatActivity() {
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        currentUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
-        currentName = intent.getStringExtra(EXTRA_NAME).orEmpty()
-        currentGroup = intent.getStringExtra(EXTRA_GROUP).orEmpty()
-        currentNumber = intent.getIntExtra(EXTRA_NUMBER, 0)
-        currentLogo = intent.getStringExtra(EXTRA_LOGO)
-        currentStreamId = intent.getIntExtra(EXTRA_STREAM_ID, -1).takeIf { it > 0 }
-        sourceId = intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()
-        zapEnabled = intent.getBooleanExtra(EXTRA_ZAP_ENABLED, false)
-        seekEnabled = intent.getBooleanExtra(EXTRA_SEEK_ENABLED, false)
-        seriesId = intent.getIntExtra(EXTRA_SERIES_ID, -1).takeIf { it > 0 }
-            ?: EpisodeQueue.seriesId
-        seriesName = intent.getStringExtra(EXTRA_SERIES_NAME)?.ifBlank { null }
-            ?: EpisodeQueue.seriesName.takeIf { it.isNotBlank() }
-        pendingStartPositionMs = intent.getLongExtra(EXTRA_START_POSITION_MS, 0L)
-        startPaused = intent.getBooleanExtra(EXTRA_START_PAUSED, false)
-        if (currentUrl.isBlank()) {
+        if (!applyIntent(intent)) {
             finish()
             return
         }
-        AppSettings.lastSourceId = sourceId
-        when {
-            zapEnabled -> AppSettings.lastScreen = AppScreen.TV
-            isSeriesVod -> AppSettings.lastScreen = AppScreen.STREAMING_SERIES
-            seekEnabled -> AppSettings.lastScreen = AppScreen.STREAMING_MOVIE
-        }
 
-        binding.progressBar.visibility = if (seekEnabled) View.VISIBLE else View.GONE
         binding.btnNextEpisode.setOnClickListener { playNextEpisode() }
         binding.btnBackToTv.setOnClickListener { goToLiveTv() }
 
@@ -157,6 +136,42 @@ class PlayerActivity : AppCompatActivity() {
             })
         }
         playCurrent()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!applyIntent(intent)) return
+        playCurrent()
+    }
+
+    /** @return false if intent has no playable URL. */
+    private fun applyIntent(intent: Intent): Boolean {
+        currentUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
+        currentName = intent.getStringExtra(EXTRA_NAME).orEmpty()
+        currentGroup = intent.getStringExtra(EXTRA_GROUP).orEmpty()
+        currentNumber = intent.getIntExtra(EXTRA_NUMBER, 0)
+        currentLogo = intent.getStringExtra(EXTRA_LOGO)
+        currentStreamId = intent.getIntExtra(EXTRA_STREAM_ID, -1).takeIf { it > 0 }
+        sourceId = intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()
+        zapEnabled = intent.getBooleanExtra(EXTRA_ZAP_ENABLED, false)
+        seekEnabled = intent.getBooleanExtra(EXTRA_SEEK_ENABLED, false)
+        seriesId = intent.getIntExtra(EXTRA_SERIES_ID, -1).takeIf { it > 0 }
+            ?: EpisodeQueue.seriesId
+        seriesName = intent.getStringExtra(EXTRA_SERIES_NAME)?.ifBlank { null }
+            ?: EpisodeQueue.seriesName.takeIf { it.isNotBlank() }
+        pendingStartPositionMs = intent.getLongExtra(EXTRA_START_POSITION_MS, 0L)
+        startPaused = intent.getBooleanExtra(EXTRA_START_PAUSED, false)
+        if (currentUrl.isBlank()) return false
+
+        AppSettings.lastSourceId = sourceId
+        when {
+            zapEnabled -> AppSettings.lastScreen = AppScreen.TV
+            isSeriesVod -> AppSettings.lastScreen = AppScreen.STREAMING_SERIES
+            seekEnabled -> AppSettings.lastScreen = AppScreen.STREAMING_MOVIE
+        }
+        binding.progressBar.visibility = if (seekEnabled) View.VISIBLE else View.GONE
+        return true
     }
 
     private fun playCurrent() {

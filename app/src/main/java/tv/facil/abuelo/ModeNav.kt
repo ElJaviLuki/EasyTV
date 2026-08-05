@@ -18,6 +18,15 @@ import kotlinx.coroutines.withContext
 object ModeNav {
     const val EXTRA_FROM_TV = "from_tv"
 
+    /** Finish current screen unless it's Main (kept under) or Player (reused via singleTop). */
+    private fun finishAfterNav(activity: AppCompatActivity) {
+        if (activity is MainActivity || activity is PlayerActivity) return
+        activity.finish()
+    }
+
+    private fun playerIntentFlags(): Int =
+        Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+
     fun handleColorKey(activity: AppCompatActivity, keyCode: Int, sourceId: String): Boolean {
         if (sourceId.isBlank()) return false
         if (activity is PlayerActivity) {
@@ -179,10 +188,9 @@ object ModeNav {
                     .putExtra(PlayerActivity.EXTRA_START_PAUSED, startPaused)
                     .putExtra(PlayerActivity.EXTRA_SERIES_ID, playback.seriesId ?: -1)
                     .putExtra(PlayerActivity.EXTRA_SERIES_NAME, playback.seriesName)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    .addFlags(playerIntentFlags())
             )
-            if (activity !is MainActivity) activity.finish()
-            // Restore next-episode queue in background (don't block opening the player).
+            finishAfterNav(activity)
             if (playback.seriesId != null) {
                 restoreEpisodeQueue(activity, sourceId, playback)
             }
@@ -198,7 +206,7 @@ object ModeNav {
                 .putExtra(SettingsActivity.EXTRA_SOURCE_ID, sourceId)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         )
-        if (activity !is MainActivity) activity.finish()
+        finishAfterNav(activity)
     }
 
     fun leaveSettings(activity: AppCompatActivity, sourceId: String) {
@@ -275,9 +283,9 @@ object ModeNav {
                 .putExtra(PlayerActivity.EXTRA_SOURCE_ID, sourceId)
                 .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, true)
                 .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, false)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .addFlags(playerIntentFlags())
         )
-        if (activity !is MainActivity) activity.finish()
+        finishAfterNav(activity)
     }
 
     private suspend fun restoreEpisodeQueue(
