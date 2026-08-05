@@ -35,4 +35,8 @@ object ZapPlaylist {
             else -> null
         }
     }
+
+    /** First channel with the given guide number, or null. */
+    fun byNumber(number: Int): CatalogItem? =
+        items.firstOrNull { it.number == number }
 }

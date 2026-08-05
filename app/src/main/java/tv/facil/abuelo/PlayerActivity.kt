@@ -46,6 +46,8 @@ class PlayerActivity : AppCompatActivity() {
         private const val NEXT_EPISODE_DELAY_SEC = 10
         private const val CENTER_TRIPLE_WINDOW_MS = 900L
         private const val PLAY_ICON_FLASH_MS = 700L
+        private const val CHANNEL_ENTRY_DELAY_MS = 2500L
+        private const val CHANNEL_ENTRY_MAX_DIGITS = 5
     }
 
     private lateinit var binding: ActivityPlayerBinding
@@ -67,6 +69,7 @@ class PlayerActivity : AppCompatActivity() {
     private var nextCountdownSec: Int = NEXT_EPISODE_DELAY_SEC
     private var centerPressCount: Int = 0
     private var lastCenterPressAt: Long = 0L
+    private var channelEntryBuffer: String = ""
     private var epgJob: Job? = null
 
     val isLiveZap: Boolean get() = zapEnabled
@@ -75,6 +78,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val resetCenterPresses = Runnable { centerPressCount = 0 }
+    private val commitChannelEntry = Runnable { commitChannelNumberEntry() }
     private val hideTransportIconRunnable = Runnable { clearTransportIcon() }
     private val hideOverlay = Runnable {
         stopProgressTicks()
@@ -176,6 +180,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun playCurrent() {
         dismissEndPrompt()
+        clearChannelNumberEntry()
         if (!startPaused) clearTransportIcon()
         binding.infoNumber.text = if (currentNumber > 0) currentNumber.toString() else ""
         binding.nowPlaying.text = currentName
@@ -511,9 +516,53 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun zap(delta: Int) {
         if (!zapEnabled || endPromptVisible) return
+        clearChannelNumberEntry()
         val next = ZapPlaylist.neighbor(currentUrl, delta) ?: return
         applyItem(next, live = true)
         playCurrent()
+    }
+
+    private fun digitFromKey(keyCode: Int): Int? = when (keyCode) {
+        KeyEvent.KEYCODE_0, KeyEvent.KEYCODE_NUMPAD_0 -> 0
+        KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_NUMPAD_1 -> 1
+        KeyEvent.KEYCODE_2, KeyEvent.KEYCODE_NUMPAD_2 -> 2
+        KeyEvent.KEYCODE_3, KeyEvent.KEYCODE_NUMPAD_3 -> 3
+        KeyEvent.KEYCODE_4, KeyEvent.KEYCODE_NUMPAD_4 -> 4
+        KeyEvent.KEYCODE_5, KeyEvent.KEYCODE_NUMPAD_5 -> 5
+        KeyEvent.KEYCODE_6, KeyEvent.KEYCODE_NUMPAD_6 -> 6
+        KeyEvent.KEYCODE_7, KeyEvent.KEYCODE_NUMPAD_7 -> 7
+        KeyEvent.KEYCODE_8, KeyEvent.KEYCODE_NUMPAD_8 -> 8
+        KeyEvent.KEYCODE_9, KeyEvent.KEYCODE_NUMPAD_9 -> 9
+        else -> null
+    }
+
+    private fun onChannelDigit(digit: Int) {
+        if (!zapEnabled || endPromptVisible) return
+        if (channelEntryBuffer.length >= CHANNEL_ENTRY_MAX_DIGITS) {
+            channelEntryBuffer = ""
+        }
+        channelEntryBuffer += digit.toString()
+        binding.channelNumberEntry.text = channelEntryBuffer
+        binding.channelNumberEntry.visibility = View.VISIBLE
+        handler.removeCallbacks(commitChannelEntry)
+        handler.postDelayed(commitChannelEntry, CHANNEL_ENTRY_DELAY_MS)
+    }
+
+    private fun commitChannelNumberEntry() {
+        val raw = channelEntryBuffer
+        clearChannelNumberEntry()
+        if (!zapEnabled || raw.isBlank()) return
+        val number = raw.toIntOrNull() ?: return
+        val channel = ZapPlaylist.byNumber(number) ?: return
+        applyItem(channel, live = true)
+        playCurrent()
+    }
+
+    private fun clearChannelNumberEntry() {
+        handler.removeCallbacks(commitChannelEntry)
+        channelEntryBuffer = ""
+        binding.channelNumberEntry.visibility = View.GONE
+        binding.channelNumberEntry.text = ""
     }
 
     private fun showOverlay(permanent: Boolean = false) {
@@ -558,6 +607,19 @@ class PlayerActivity : AppCompatActivity() {
             KeyEvent.KEYCODE_CHANNEL_DOWN -> {
                 zap(-1)
                 return true
+            }
+            KeyEvent.KEYCODE_0, KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_2, KeyEvent.KEYCODE_3,
+            KeyEvent.KEYCODE_4, KeyEvent.KEYCODE_5, KeyEvent.KEYCODE_6, KeyEvent.KEYCODE_7,
+            KeyEvent.KEYCODE_8, KeyEvent.KEYCODE_9,
+            KeyEvent.KEYCODE_NUMPAD_0, KeyEvent.KEYCODE_NUMPAD_1, KeyEvent.KEYCODE_NUMPAD_2,
+            KeyEvent.KEYCODE_NUMPAD_3, KeyEvent.KEYCODE_NUMPAD_4, KeyEvent.KEYCODE_NUMPAD_5,
+            KeyEvent.KEYCODE_NUMPAD_6, KeyEvent.KEYCODE_NUMPAD_7, KeyEvent.KEYCODE_NUMPAD_8,
+            KeyEvent.KEYCODE_NUMPAD_9 -> {
+                val digit = digitFromKey(keyCode)
+                if (digit != null && zapEnabled) {
+                    onChannelDigit(digit)
+                    return true
+                }
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (seekEnabled) {
@@ -641,6 +703,7 @@ class PlayerActivity : AppCompatActivity() {
         handler.removeCallbacks(nextEpisodeTick)
         handler.removeCallbacks(resetCenterPresses)
         handler.removeCallbacks(hideTransportIconRunnable)
+        handler.removeCallbacks(commitChannelEntry)
         binding.playerView.player = null
         player?.release()
         player = null
