@@ -5,7 +5,8 @@ Usage:
   python scripts/seed_playlists.py path/to/log_decoded.json
   python scripts/seed_playlists.py path/to/playlists.json
 
-The output file is gitignored. Safe to run after cloning.
+Output has no ids — the app derives stable ids from baseUrl+username.
+The output file is gitignored.
 """
 from __future__ import annotations
 
@@ -16,6 +17,22 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "app" / "src" / "main" / "assets" / "playlists.json"
+
+SOURCE_FIELDS = ("name", "baseUrl", "username", "password", "hint")
+
+
+def clean_source(raw: dict) -> dict:
+    """Keep only provider fields; drop id and anything else."""
+    out = {
+        "name": raw["name"],
+        "baseUrl": str(raw["baseUrl"]).rstrip("/"),
+        "username": raw["username"],
+        "password": raw["password"],
+    }
+    hint = raw.get("hint") or ""
+    if hint:
+        out["hint"] = hint
+    return out
 
 
 def from_ib_urls(urls: list[dict]) -> list[dict]:
@@ -30,21 +47,22 @@ def from_ib_urls(urls: list[dict]) -> list[dict]:
             continue
         port = f":{parsed.port}" if parsed.port else ""
         sources.append(
-            {
-                "id": item.get("id") or f"src_{i}",
-                "name": item.get("name") or f"Servidor {i + 1}",
-                "baseUrl": f"{parsed.scheme or 'http'}://{parsed.hostname}{port}",
-                "username": user,
-                "password": password,
-                "hint": parsed.hostname,
-            }
+            clean_source(
+                {
+                    "name": item.get("name") or f"Servidor {i + 1}",
+                    "baseUrl": f"{parsed.scheme or 'http'}://{parsed.hostname}{port}",
+                    "username": user,
+                    "password": password,
+                    "hint": parsed.hostname,
+                }
+            )
         )
     return sources
 
 
 def normalize(data: dict) -> dict:
     if "sources" in data:
-        return {"sources": data["sources"]}
+        return {"sources": [clean_source(s) for s in data["sources"]]}
     if "urls" in data:
         return {"sources": from_ib_urls(data["urls"])}
     raise SystemExit("JSON no reconocido: se espera 'sources' o 'urls' (export IB Player)")

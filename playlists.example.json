@@ -1,7 +1,6 @@
 {
   "sources": [
     {
-      "id": "example-1",
       "name": "ServidorEjemplo",
       "baseUrl": "http://example.invalid:80",
       "username": "USER",

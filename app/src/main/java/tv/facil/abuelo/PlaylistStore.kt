@@ -4,10 +4,13 @@ import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.MessageDigest
 
 /**
  * Playlists loaded at runtime from assets/playlists.json (not hardcoded).
  * Seed post-clone with: python scripts/seed_playlists.py <export.json>
+ *
+ * JSON providers do not supply ids — the app derives a stable id from baseUrl+username.
  */
 object PlaylistStore {
     const val ASSET_FILE = "playlists.json"
@@ -23,6 +26,12 @@ object PlaylistStore {
     fun byId(id: String): PlaylistSource? = sources.find { it.id == id }
 
     fun errorMessage(): String? = loadError
+
+    fun stableId(baseUrl: String, username: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest("$baseUrl\u0000$username".toByteArray(Charsets.UTF_8))
+        return digest.take(8).joinToString("") { b -> "%02x".format(b) }
+    }
 
     fun load(context: Context) {
         try {
@@ -47,11 +56,11 @@ object PlaylistStore {
 
     fun parse(text: String): List<PlaylistSource> {
         val root = JSONObject(text)
-        // Clean format: { "sources": [ { id, name, baseUrl, username, password, hint } ] }
+        // Clean format: { "sources": [ { name, baseUrl, username, password, hint? } ] }
         if (root.has("sources")) {
             return parseSourcesArray(root.getJSONArray("sources"))
         }
-        // IB Player export: { "urls": [ { id, name, url } ] }
+        // IB Player export: { "urls": [ { name, url } ] }
         if (root.has("urls")) {
             return parseIbUrls(root.getJSONArray("urls"))
         }
@@ -62,11 +71,13 @@ object PlaylistStore {
         val out = ArrayList<PlaylistSource>(arr.length())
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
+            val baseUrl = o.getString("baseUrl").trimEnd('/')
+            val username = o.getString("username")
             out += PlaylistSource(
-                id = o.getString("id"),
+                id = stableId(baseUrl, username),
                 name = o.getString("name"),
-                baseUrl = o.getString("baseUrl").trimEnd('/'),
-                username = o.getString("username"),
+                baseUrl = baseUrl,
+                username = username,
                 password = o.getString("password"),
                 hint = o.optString("hint").ifBlank { o.optString("name") }
             )
@@ -90,7 +101,7 @@ object PlaylistStore {
             }
             if (user.isBlank() || pass.isBlank() || uri.host.isNullOrBlank()) continue
             out += PlaylistSource(
-                id = o.optString("id").ifBlank { "src_$i" },
+                id = stableId(base, user),
                 name = o.optString("name").ifBlank { "Servidor ${i + 1}" },
                 baseUrl = base,
                 username = user,
