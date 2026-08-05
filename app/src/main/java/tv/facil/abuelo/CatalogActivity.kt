@@ -11,17 +11,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import tv.facil.abuelo.databinding.ActivityChannelsBinding
 
-class ChannelsActivity : AppCompatActivity() {
+class CatalogActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_SOURCE_ID = "source_id"
+        const val EXTRA_KIND = "kind"
     }
 
     private lateinit var binding: ActivityChannelsBinding
     private lateinit var source: PlaylistSource
-    private var allChannels: List<Channel> = emptyList()
+    private lateinit var kind: ContentKind
+    private var allItems: List<CatalogItem> = emptyList()
     private var selectedCategory: String = "Todas"
     private lateinit var categoryAdapter: CategoryAdapter
-    private lateinit var channelAdapter: ChannelAdapter
+    private lateinit var catalogAdapter: CatalogAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,80 +34,93 @@ class ChannelsActivity : AppCompatActivity() {
             finish()
             return
         }
+        kind = ContentKind.fromExtra(intent.getStringExtra(EXTRA_KIND))
 
-        binding.title.text = source.name
-        binding.backButton.text = getString(R.string.back_servers)
+        binding.title.text = "${source.name} · ${kind.title}"
+        binding.backButton.text = getString(R.string.back_section)
         binding.backButton.setOnClickListener { finish() }
 
         categoryAdapter = CategoryAdapter(emptyList(), selectedCategory) { category ->
             selectedCategory = category
             categoryAdapter.submit(categoryNames(), selectedCategory)
-            renderChannels()
+            renderList()
         }
         binding.categoryList.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         binding.categoryList.adapter = categoryAdapter
 
-        channelAdapter = ChannelAdapter(emptyList()) { channel ->
-            startActivity(
-                Intent(this, PlayerActivity::class.java)
-                    .putExtra(PlayerActivity.EXTRA_URL, channel.url)
-                    .putExtra(PlayerActivity.EXTRA_NAME, channel.name)
-                    .putExtra(PlayerActivity.EXTRA_GROUP, channel.group)
-            )
+        catalogAdapter = CatalogAdapter(emptyList()) { item ->
+            when {
+                kind == ContentKind.SERIES && item.seriesId != null -> {
+                    startActivity(
+                        Intent(this, EpisodesActivity::class.java)
+                            .putExtra(EpisodesActivity.EXTRA_SOURCE_ID, source.id)
+                            .putExtra(EpisodesActivity.EXTRA_SERIES_ID, item.seriesId)
+                            .putExtra(EpisodesActivity.EXTRA_SERIES_NAME, item.name)
+                    )
+                }
+                item.url.isNotBlank() -> {
+                    startActivity(
+                        Intent(this, PlayerActivity::class.java)
+                            .putExtra(PlayerActivity.EXTRA_URL, item.url)
+                            .putExtra(PlayerActivity.EXTRA_NAME, item.name)
+                            .putExtra(PlayerActivity.EXTRA_GROUP, item.group)
+                    )
+                }
+            }
         }
         binding.channelList.layoutManager = LinearLayoutManager(this)
-        binding.channelList.adapter = channelAdapter
+        binding.channelList.adapter = catalogAdapter
 
-        showLocalCacheThenRefresh()
+        showCacheThenRefresh()
     }
 
     private fun categoryNames(): List<String> =
-        listOf("Todas") + allChannels.map { it.group }.distinct().sorted()
+        listOf("Todas") + allItems.map { it.group }.distinct().sorted()
 
-    private fun applyChannels(channels: List<Channel>, status: String) {
-        allChannels = channels
+    private fun applyItems(items: List<CatalogItem>, status: String) {
+        allItems = items
         binding.loading.visibility = View.GONE
         binding.status.text = status
         selectedCategory = "Todas"
         categoryAdapter.submit(categoryNames(), selectedCategory)
-        renderChannels()
+        renderList()
     }
 
-    private fun showLocalCacheThenRefresh() {
+    private fun showCacheThenRefresh() {
         lifecycleScope.launch {
             val cached = withContext(Dispatchers.IO) {
-                PlaylistRepository.memoryCached(source.id)
-                    .ifEmpty { PlaylistRepository.diskCached(this@ChannelsActivity, source.id) }
+                PlaylistRepository.memoryCached(source.id, kind)
+                    .ifEmpty { PlaylistRepository.diskCached(this@CatalogActivity, source.id, kind) }
             }
             if (cached.isNotEmpty()) {
-                applyChannels(cached, "${cached.size} canales (caché) · actualizando…")
+                applyItems(cached, "${cached.size} ${kind.loadingLabel} (caché) · actualizando…")
             } else {
                 binding.loading.visibility = View.VISIBLE
-                binding.status.text = getString(R.string.loading)
+                binding.status.text = getString(R.string.loading_kind, kind.loadingLabel)
             }
 
             try {
-                val fresh = PlaylistRepository.loadChannels(
-                    this@ChannelsActivity, source, force = cached.isNotEmpty()
+                val fresh = PlaylistRepository.loadCatalog(
+                    this@CatalogActivity, source, kind, force = cached.isNotEmpty()
                 )
-                applyChannels(fresh, "${fresh.size} canales · ${source.hint}")
+                applyItems(fresh, "${fresh.size} ${kind.loadingLabel} · ${source.hint}")
             } catch (e: Exception) {
                 binding.loading.visibility = View.GONE
                 if (cached.isEmpty()) {
                     binding.status.text = getString(R.string.load_error) + " (${e.message})"
                     binding.backButton.requestFocus()
                 } else {
-                    binding.status.text = "${cached.size} canales (caché) · sin red"
+                    binding.status.text = "${cached.size} ${kind.loadingLabel} (caché) · sin red"
                 }
             }
         }
     }
 
-    private fun renderChannels() {
-        val filtered = if (selectedCategory == "Todas") allChannels
-        else allChannels.filter { it.group == selectedCategory }
-        channelAdapter.submit(filtered)
+    private fun renderList() {
+        val filtered = if (selectedCategory == "Todas") allItems
+        else allItems.filter { it.group == selectedCategory }
+        catalogAdapter.submit(filtered)
         if (filtered.isNotEmpty()) {
             binding.channelList.post {
                 binding.channelList.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()

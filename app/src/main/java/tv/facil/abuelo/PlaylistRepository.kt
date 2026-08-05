@@ -12,66 +12,87 @@ import java.util.concurrent.TimeUnit
 object PlaylistRepository {
     private val client = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
         .build()
 
-    @Volatile
-    private var cacheKey: String? = null
+    private val memory = HashMap<String, List<CatalogItem>>()
 
-    @Volatile
-    private var cacheChannels: List<Channel> = emptyList()
+    private fun memKey(sourceId: String, kind: ContentKind) = "${sourceId}_${kind.apiKey}"
 
-    fun memoryCached(sourceId: String): List<Channel> =
-        if (cacheKey == sourceId) cacheChannels else emptyList()
+    fun memoryCached(sourceId: String, kind: ContentKind): List<CatalogItem> =
+        memory[memKey(sourceId, kind)].orEmpty()
 
-    fun diskCached(context: Context, sourceId: String): List<Channel> =
-        ChannelCache.read(context, sourceId)
+    fun diskCached(context: Context, sourceId: String, kind: ContentKind): List<CatalogItem> =
+        CatalogCache.read(context, sourceId, kind)
 
-    suspend fun loadChannels(
+    suspend fun loadCatalog(
         context: Context,
         source: PlaylistSource,
+        kind: ContentKind,
         force: Boolean = false
-    ): List<Channel> = withContext(Dispatchers.IO) {
-        if (!force && cacheKey == source.id && cacheChannels.isNotEmpty()) {
-            return@withContext cacheChannels
+    ): List<CatalogItem> = withContext(Dispatchers.IO) {
+        val key = memKey(source.id, kind)
+        if (!force) {
+            memory[key]?.takeIf { it.isNotEmpty() }?.let { return@withContext it }
         }
 
-        val channels = try {
-            loadViaXtreamApi(source)
-        } catch (apiError: Exception) {
-            try {
-                loadViaM3u(source)
-            } catch (m3uError: Exception) {
-                throw Exception("API: ${apiError.message} · M3U: ${m3uError.message}")
-            }
+        val items = when (kind) {
+            ContentKind.LIVE -> loadLive(source)
+            ContentKind.MOVIES -> loadMovies(source)
+            ContentKind.SERIES -> loadSeries(source)
         }
-
-        if (channels.isEmpty()) error("No hay canales en la lista")
-        cacheKey = source.id
-        cacheChannels = channels
-        ChannelCache.write(context.applicationContext, source.id, channels)
-        channels
+        if (items.isEmpty()) error("Lista vacía")
+        memory[key] = items
+        CatalogCache.write(context.applicationContext, source.id, kind, items)
+        items
     }
 
-    private suspend fun loadViaXtreamApi(source: PlaylistSource): List<Channel> = coroutineScope {
-        val catsDeferred = async {
+    suspend fun loadEpisodes(source: PlaylistSource, seriesId: Int): List<CatalogItem> =
+        withContext(Dispatchers.IO) {
+            val json = httpGet(
+                "${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_series_info&series_id=$seriesId"
+            )
+            val items = XtreamApi.parseEpisodes(json, source)
+            if (items.isEmpty()) error("Sin episodios")
+            items
+        }
+
+    private suspend fun loadLive(source: PlaylistSource): List<CatalogItem> = coroutineScope {
+        val cats = async {
             httpGet("${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_live_categories")
         }
-        val streamsDeferred = async {
+        val streams = async {
             httpGet("${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_live_streams")
         }
-        XtreamApi.parseLiveStreams(streamsDeferred.await(), source, XtreamApi.parseCategories(catsDeferred.await()))
+        XtreamApi.parseLiveStreams(streams.await(), source, XtreamApi.parseCategories(cats.await()))
     }
 
-    private fun loadViaM3u(source: PlaylistSource): List<Channel> =
-        M3uParser.parse(httpGet(source.m3uUrl))
+    private suspend fun loadMovies(source: PlaylistSource): List<CatalogItem> = coroutineScope {
+        val cats = async {
+            httpGet("${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_vod_categories")
+        }
+        val streams = async {
+            httpGet("${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_vod_streams")
+        }
+        XtreamApi.parseVodStreams(streams.await(), source, XtreamApi.parseCategories(cats.await()))
+    }
+
+    private suspend fun loadSeries(source: PlaylistSource): List<CatalogItem> = coroutineScope {
+        val cats = async {
+            httpGet("${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_series_categories")
+        }
+        val series = async {
+            httpGet("${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_series")
+        }
+        XtreamApi.parseSeriesList(series.await(), XtreamApi.parseCategories(cats.await()))
+    }
 
     private fun httpGet(url: String): String {
         val request = Request.Builder()
             .url(url)
-            .header("User-Agent", "TVFacil/1.1")
+            .header("User-Agent", "TVFacil/1.2")
             .get()
             .build()
         client.newCall(request).execute().use { response ->

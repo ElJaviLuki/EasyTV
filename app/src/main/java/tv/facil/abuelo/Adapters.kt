@@ -31,6 +31,35 @@ class ServerAdapter(
     }
 }
 
+class SectionAdapter(
+    private val items: List<ContentKind>,
+    private val onClick: (ContentKind) -> Unit
+) : RecyclerView.Adapter<SectionAdapter.Holder>() {
+
+    private val hints = mapOf(
+        ContentKind.LIVE to "TV en directo",
+        ContentKind.SERIES to "Capítulos por temporadas",
+        ContentKind.MOVIES to "Cine a la carta"
+    )
+
+    inner class Holder(val binding: ItemServerBinding) : RecyclerView.ViewHolder(binding.root)
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
+        val binding = ItemServerBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return Holder(binding)
+    }
+
+    override fun getItemCount(): Int = items.size
+
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        val item = items[position]
+        holder.binding.serverName.text = item.title
+        holder.binding.serverHint.text = hints[item].orEmpty()
+        holder.binding.root.setOnClickListener { onClick(item) }
+        if (position == 0) holder.binding.root.requestFocus()
+    }
+}
+
 class CategoryAdapter(
     private var items: List<String>,
     private var selected: String,
@@ -67,14 +96,14 @@ class CategoryAdapter(
     }
 }
 
-class ChannelAdapter(
-    private var items: List<Channel>,
-    private val onClick: (Channel) -> Unit
-) : RecyclerView.Adapter<ChannelAdapter.Holder>() {
+class CatalogAdapter(
+    private var items: List<CatalogItem>,
+    private val onClick: (CatalogItem) -> Unit
+) : RecyclerView.Adapter<CatalogAdapter.Holder>() {
 
     inner class Holder(val binding: ItemChannelBinding) : RecyclerView.ViewHolder(binding.root)
 
-    fun submit(items: List<Channel>) {
+    fun submit(items: List<CatalogItem>) {
         this.items = items
         notifyDataSetChanged()
     }

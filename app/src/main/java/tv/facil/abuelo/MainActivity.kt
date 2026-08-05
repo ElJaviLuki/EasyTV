@@ -18,8 +18,8 @@ class MainActivity : AppCompatActivity() {
         binding.serverList.layoutManager = LinearLayoutManager(this)
         binding.serverList.adapter = ServerAdapter(SeededPlaylists.sources) { source ->
             startActivity(
-                Intent(this, ChannelsActivity::class.java)
-                    .putExtra(ChannelsActivity.EXTRA_SOURCE_ID, source.id)
+                Intent(this, SectionActivity::class.java)
+                    .putExtra(SectionActivity.EXTRA_SOURCE_ID, source.id)
             )
         }
     }

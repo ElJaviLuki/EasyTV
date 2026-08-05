@@ -3,13 +3,13 @@ package tv.facil.abuelo
 object M3uParser {
     private val attrRegex = Regex("""([\w-]+)="([^"]*)"""")
 
-    fun parse(content: String): List<Channel> {
+    fun parse(content: String): List<CatalogItem> {
         val lines = content.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .toList()
 
-        val channels = mutableListOf<Channel>()
+        val items = mutableListOf<CatalogItem>()
         var pendingName = "Canal"
         var pendingGroup = "Sin categoría"
         var pendingLogo: String? = null
@@ -27,7 +27,7 @@ object M3uParser {
                 }
                 line.startsWith("#") -> Unit
                 else -> {
-                    channels += Channel(
+                    items += CatalogItem(
                         number = number++,
                         name = pendingName,
                         group = pendingGroup,
@@ -40,6 +40,6 @@ object M3uParser {
                 }
             }
         }
-        return channels
+        return items
     }
 }

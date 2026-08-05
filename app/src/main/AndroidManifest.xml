@@ -29,7 +29,17 @@
             android:theme="@style/Theme.TVFacil.Player" />
 
         <activity
-            android:name=".ChannelsActivity"
+            android:name=".EpisodesActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVFacil" />
+
+        <activity
+            android:name=".CatalogActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVFacil" />
+
+        <activity
+            android:name=".SectionActivity"
             android:exported="false"
             android:theme="@style/Theme.TVFacil" />
 

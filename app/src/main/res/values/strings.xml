@@ -2,7 +2,12 @@
 <resources>
     <string name="app_name">TV Fácil</string>
     <string name="choose_server">Elige una lista</string>
-    <string name="loading">Cargando canales (rápido)…</string>
-    <string name="load_error">No se pudo cargar. Prueba otra lista.</string>
+    <string name="choose_section">¿Qué quieres ver?</string>
+    <string name="loading">Cargando…</string>
+    <string name="loading_kind">Cargando %1$s…</string>
+    <string name="loading_episodes">Cargando episodios…</string>
+    <string name="load_error">No se pudo cargar. Prueba otra opción.</string>
     <string name="back_servers">Cambiar lista</string>
+    <string name="back_section">Atrás</string>
+    <string name="back_series">Volver a series</string>
 </resources>

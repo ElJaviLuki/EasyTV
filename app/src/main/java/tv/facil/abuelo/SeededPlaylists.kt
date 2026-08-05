@@ -1,5 +1,16 @@
 package tv.facil.abuelo
 
+enum class ContentKind(val apiKey: String, val title: String, val loadingLabel: String) {
+    LIVE("live", "Canales", "canales"),
+    SERIES("series", "Series", "series"),
+    MOVIES("vod", "Películas", "películas");
+
+    companion object {
+        fun fromExtra(value: String?): ContentKind =
+            entries.find { it.name == value } ?: LIVE
+    }
+}
+
 data class PlaylistSource(
     val id: String,
     val name: String,
@@ -13,14 +24,21 @@ data class PlaylistSource(
 
     fun liveStreamUrl(streamId: Int): String =
         "$baseUrl/live/$username/$password/$streamId.ts"
+
+    fun movieUrl(streamId: Int, ext: String): String =
+        "$baseUrl/movie/$username/$password/$streamId.${ext.ifBlank { "mp4" }}"
+
+    fun seriesEpisodeUrl(episodeId: String, ext: String): String =
+        "$baseUrl/series/$username/$password/$episodeId.${ext.ifBlank { "mp4" }}"
 }
 
-data class Channel(
+data class CatalogItem(
     val number: Int,
     val name: String,
     val group: String,
     val logo: String?,
-    val url: String
+    val url: String,
+    val seriesId: Int? = null
 )
 
 /**
