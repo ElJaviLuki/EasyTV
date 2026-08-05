@@ -4,16 +4,23 @@ import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.security.MessageDigest
 
 /**
- * Playlists loaded at runtime from assets/playlists.json (not hardcoded).
- * Seed post-clone with: python scripts/seed_playlists.py <export.json>
+ * Playlists loaded at runtime (not hardcoded).
  *
- * JSON providers do not supply ids — the app derives a stable id from baseUrl+username.
+ * Priority:
+ * 1. App external files: Android/data/tv.facil.abuelo/files/playlists.json (adb seed)
+ * 2. App internal filesDir/playlists.json
+ * 3. assets/playlists.json (optional build-time fallback)
+ *
+ * Seed: python scripts/seed_playlists.py path/to/export.json
+ * JSON providers do not supply ids — derived from baseUrl+username.
  */
 object PlaylistStore {
-    const val ASSET_FILE = "playlists.json"
+    const val FILE_NAME = "playlists.json"
+    const val ASSET_FILE = FILE_NAME
 
     @Volatile
     private var sources: List<PlaylistSource> = emptyList()
@@ -21,11 +28,16 @@ object PlaylistStore {
     @Volatile
     private var loadError: String? = null
 
+    @Volatile
+    private var loadedFrom: String? = null
+
     fun sources(): List<PlaylistSource> = sources
 
     fun byId(id: String): PlaylistSource? = sources.find { it.id == id }
 
     fun errorMessage(): String? = loadError
+
+    fun loadedFrom(): String? = loadedFrom
 
     fun stableId(baseUrl: String, username: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -35,13 +47,13 @@ object PlaylistStore {
 
     fun load(context: Context) {
         try {
-            val names = context.assets.list("").orEmpty()
-            if (ASSET_FILE !in names) {
-                sources = emptyList()
-                loadError = "Falta assets/$ASSET_FILE. Ejecuta scripts/seed_playlists.py"
-                return
-            }
-            val text = context.assets.open(ASSET_FILE).bufferedReader().use { it.readText() }
+            val text = readPlaylistText(context)
+                ?: run {
+                    sources = emptyList()
+                    loadedFrom = null
+                    loadError = "Falta playlists.json. Ejecuta: python scripts/seed_playlists.py <export.json>"
+                    return
+                }
             sources = parse(text)
             loadError = if (sources.isEmpty()) {
                 "playlists.json no tiene servidores"
@@ -50,17 +62,41 @@ object PlaylistStore {
             }
         } catch (e: Exception) {
             sources = emptyList()
+            loadedFrom = null
             loadError = e.message ?: "Error leyendo playlists.json"
+        }
+    }
+
+    private fun readPlaylistText(context: Context): String? {
+        val external = context.getExternalFilesDir(null)?.let { File(it, FILE_NAME) }
+        if (external != null && external.isFile && external.length() > 0L) {
+            loadedFrom = external.absolutePath
+            return external.readText(Charsets.UTF_8)
+        }
+
+        val internal = File(context.filesDir, FILE_NAME)
+        if (internal.isFile && internal.length() > 0L) {
+            loadedFrom = internal.absolutePath
+            return internal.readText(Charsets.UTF_8)
+        }
+
+        return try {
+            val names = context.assets.list("").orEmpty()
+            if (ASSET_FILE !in names) null
+            else {
+                loadedFrom = "assets/$ASSET_FILE"
+                context.assets.open(ASSET_FILE).bufferedReader(Charsets.UTF_8).use { it.readText() }
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
     fun parse(text: String): List<PlaylistSource> {
         val root = JSONObject(text)
-        // Clean format: { "sources": [ { name, baseUrl, username, password, hint? } ] }
         if (root.has("sources")) {
             return parseSourcesArray(root.getJSONArray("sources"))
         }
-        // IB Player export: { "urls": [ { name, url } ] }
         if (root.has("urls")) {
             return parseIbUrls(root.getJSONArray("urls"))
         }

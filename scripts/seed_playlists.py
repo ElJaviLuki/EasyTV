@@ -1,28 +1,37 @@
 #!/usr/bin/env python3
-"""Seed app/src/main/assets/playlists.json from an IB Player export or clean JSON.
+"""Normalize a playlist export and seed it onto the TV via adb.
 
 Usage:
   python scripts/seed_playlists.py path/to/log_decoded.json
   python scripts/seed_playlists.py path/to/playlists.json
+  python scripts/seed_playlists.py path/to/export.json --serial <adb-serial>
+  python scripts/seed_playlists.py path/to/export.json --no-push   # only write secrets/playlists.json
 
-Output has no ids — the app derives stable ids from baseUrl+username.
-The output file is gitignored.
+Accepts IB Player export ({"urls":[...]}) or clean {"sources":[...]}.
+No ids in output — the app derives them from baseUrl+username.
+
+Pushes to:
+  /sdcard/Android/data/tv.facil.abuelo/files/playlists.json
 """
 from __future__ import annotations
 
+import argparse
 import json
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "app" / "src" / "main" / "assets" / "playlists.json"
-
-SOURCE_FIELDS = ("name", "baseUrl", "username", "password", "hint")
+LOCAL_OUT = ROOT / "secrets" / "playlists.json"
+PACKAGE = "tv.facil.abuelo"
+REMOTE_DIR = f"/sdcard/Android/data/{PACKAGE}/files"
+REMOTE_FILE = f"{REMOTE_DIR}/playlists.json"
 
 
 def clean_source(raw: dict) -> dict:
-    """Keep only provider fields; drop id and anything else."""
     out = {
         "name": raw["name"],
         "baseUrl": str(raw["baseUrl"]).rstrip("/"),
@@ -68,20 +77,56 @@ def normalize(data: dict) -> dict:
     raise SystemExit("JSON no reconocido: se espera 'sources' o 'urls' (export IB Player)")
 
 
+def adb(args: list[str], serial: str | None) -> None:
+    cmd = ["adb"]
+    if serial:
+        cmd += ["-s", serial]
+    cmd += args
+    subprocess.run(cmd, check=True)
+
+
+def push_to_device(local: Path, serial: str | None) -> None:
+    adb(["shell", f"mkdir -p '{REMOTE_DIR}'"], serial)
+    adb(["push", str(local), REMOTE_FILE], serial)
+    adb(["shell", f"am force-stop {PACKAGE}"], serial)
+    adb(["shell", f"am start -n {PACKAGE}/.MainActivity"], serial)
+
+
 def main() -> None:
-    if len(sys.argv) != 2:
-        print(__doc__.strip(), file=sys.stderr)
-        raise SystemExit(2)
-    src = Path(sys.argv[1])
-    if not src.is_file():
-        raise SystemExit(f"No existe: {src}")
-    data = json.loads(src.read_text(encoding="utf-8-sig"))
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("export", type=Path, help="IB export or clean playlists JSON")
+    parser.add_argument("--serial", help="adb device serial")
+    parser.add_argument("--no-push", action="store_true", help="Only write secrets/playlists.json")
+    args = parser.parse_args()
+
+    if not args.export.is_file():
+        raise SystemExit(f"No existe: {args.export}")
+
+    data = json.loads(args.export.read_text(encoding="utf-8-sig"))
     normalized = normalize(data)
     if not normalized["sources"]:
         raise SystemExit("No se extrajo ningún servidor")
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(normalized, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"OK: {len(normalized['sources'])} servidores -> {OUT}")
+
+    payload = json.dumps(normalized, ensure_ascii=False, indent=2) + "\n"
+    LOCAL_OUT.parent.mkdir(parents=True, exist_ok=True)
+    LOCAL_OUT.write_text(payload, encoding="utf-8")
+    print(f"Local: {len(normalized['sources'])} servidores -> {LOCAL_OUT}")
+
+    if args.no_push:
+        return
+
+    if shutil.which("adb") is None:
+        raise SystemExit("adb no está en PATH; usa --no-push o instala platform-tools")
+
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as tmp:
+        tmp.write(payload)
+        tmp_path = Path(tmp.name)
+    try:
+        push_to_device(tmp_path, args.serial)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    print(f"ADB: pushed -> {REMOTE_FILE} y reiniciada {PACKAGE}")
 
 
 if __name__ == "__main__":
