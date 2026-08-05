@@ -11,19 +11,17 @@ captures/
 *.ap_
 *.aab
 
-# Secrets — seed via adb: python scripts/seed_playlists.py <export.json>
-app/src/main/assets/playlists.json
+# Secrets — outside app/; seed via: python scripts/seed_playlists.py <export.json>
 secrets/
 *.secret.json
-playlists.json
-
-# Local dumps / tests that may contain credentials
-m3u_test.txt
-*.ab
-log_decoded.json
 
 # OS / editor
 .DS_Store
 Thumbs.db
 *.swp
 *~
+
+# Local dumps / tests that may contain credentials
+m3u_test.txt
+*.ab
+log_decoded.json

@@ -8,19 +8,18 @@ import java.io.File
 import java.security.MessageDigest
 
 /**
- * Playlists loaded at runtime (not hardcoded).
+ * Playlists loaded at runtime (not hardcoded, not packaged in the APK).
  *
  * Priority:
  * 1. App external files: Android/data/tv.facil.abuelo/files/playlists.json (adb seed)
  * 2. App internal filesDir/playlists.json
- * 3. assets/playlists.json (optional build-time fallback)
  *
+ * Local working copy for the seeder: secrets/playlists.json (gitignored, outside app/).
  * Seed: python scripts/seed_playlists.py path/to/export.json
  * JSON providers do not supply ids — derived from baseUrl+username.
  */
 object PlaylistStore {
     const val FILE_NAME = "playlists.json"
-    const val ASSET_FILE = FILE_NAME
 
     @Volatile
     private var sources: List<PlaylistSource> = emptyList()
@@ -80,16 +79,7 @@ object PlaylistStore {
             return internal.readText(Charsets.UTF_8)
         }
 
-        return try {
-            val names = context.assets.list("").orEmpty()
-            if (ASSET_FILE !in names) null
-            else {
-                loadedFrom = "assets/$ASSET_FILE"
-                context.assets.open(ASSET_FILE).bufferedReader(Charsets.UTF_8).use { it.readText() }
-            }
-        } catch (_: Exception) {
-            null
-        }
+        return null
     }
 
     fun parse(text: String): List<PlaylistSource> {

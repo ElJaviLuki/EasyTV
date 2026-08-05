@@ -26,11 +26,11 @@ python scripts/seed_playlists.py path/to/export.json --no-push   # only secrets/
 
 Accepts IB Player export (`urls`) or clean format (`playlists.example.json`).
 
-The script writes `secrets/playlists.json` (gitignored) and pushes to:
+The script writes `secrets/playlists.json` (gitignored, outside `app/`) and pushes to:
 
 `/sdcard/Android/data/tv.facil.abuelo/files/playlists.json`
 
-Then force-stops and relaunches the app. Load order: external files → internal files → assets fallback.
+Then force-stops and relaunches the app. Load order on device: external files → internal files.
 
 ## Flow
 
