@@ -75,6 +75,10 @@ class CatalogActivity : AppCompatActivity() {
                             .putExtra(PlayerActivity.EXTRA_URL, item.url)
                             .putExtra(PlayerActivity.EXTRA_NAME, item.name)
                             .putExtra(PlayerActivity.EXTRA_GROUP, item.group)
+                            .putExtra(PlayerActivity.EXTRA_NUMBER, item.number)
+                            .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
+                            .putExtra(PlayerActivity.EXTRA_STREAM_ID, item.streamId ?: -1)
+                            .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
                             .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, kind == ContentKind.LIVE)
                     )
                 }
