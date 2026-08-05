@@ -73,8 +73,9 @@ class PlayerActivity : AppCompatActivity() {
     private var epgJob: Job? = null
 
     val isLiveZap: Boolean get() = zapEnabled
-    val isSeriesVod: Boolean get() = seekEnabled && (seriesId != null || EpisodeQueue.isActive)
-    val isMovieVod: Boolean get() = seekEnabled && !isSeriesVod
+    /** Series only when this playback was opened with a series id (not leftover EpisodeQueue). */
+    val isSeriesVod: Boolean get() = seekEnabled && seriesId != null
+    val isMovieVod: Boolean get() = seekEnabled && seriesId == null
 
     private val handler = Handler(Looper.getMainLooper())
     private val resetCenterPresses = Runnable { centerPressCount = 0 }
@@ -160,13 +161,17 @@ class PlayerActivity : AppCompatActivity() {
         sourceId = intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()
         zapEnabled = intent.getBooleanExtra(EXTRA_ZAP_ENABLED, false)
         seekEnabled = intent.getBooleanExtra(EXTRA_SEEK_ENABLED, false)
+        // Only trust explicit extras — never inherit EpisodeQueue (would tag movies as series).
         seriesId = intent.getIntExtra(EXTRA_SERIES_ID, -1).takeIf { it > 0 }
-            ?: EpisodeQueue.seriesId
         seriesName = intent.getStringExtra(EXTRA_SERIES_NAME)?.ifBlank { null }
-            ?: EpisodeQueue.seriesName.takeIf { it.isNotBlank() }
+            ?: seriesId?.let { EpisodeQueue.seriesName.takeIf { n -> n.isNotBlank() } }
         pendingStartPositionMs = intent.getLongExtra(EXTRA_START_POSITION_MS, 0L)
         startPaused = intent.getBooleanExtra(EXTRA_START_PAUSED, false)
         if (currentUrl.isBlank()) return false
+
+        if (zapEnabled || isMovieVod) {
+            EpisodeQueue.clear()
+        }
 
         AppSettings.lastSourceId = sourceId
         when {
@@ -248,10 +253,10 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun persistVodState() {
-        val sid = seriesId ?: EpisodeQueue.seriesId
+        if (!seekEnabled) return
+        val sid = seriesId
         AppSettings.lastScreen =
-            if (sid != null || EpisodeQueue.isActive) AppScreen.STREAMING_SERIES
-            else AppScreen.STREAMING_MOVIE
+            if (sid != null) AppScreen.STREAMING_SERIES else AppScreen.STREAMING_MOVIE
         AppSettings.saveLastVod(
             url = currentUrl,
             name = currentName,
@@ -259,7 +264,7 @@ class PlayerActivity : AppCompatActivity() {
             logo = currentLogo,
             number = currentNumber,
             seriesId = sid,
-            seriesName = seriesName ?: EpisodeQueue.seriesName.takeIf { it.isNotBlank() },
+            seriesName = if (sid != null) seriesName else null,
             positionMs = player?.currentPosition?.coerceAtLeast(0L) ?: 0L
         )
     }

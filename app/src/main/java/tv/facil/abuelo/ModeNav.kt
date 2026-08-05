@@ -76,10 +76,12 @@ object ModeNav {
         if (AppSettings.lastSeriesHub == AppScreen.STREAMING_SERIES) {
             if (activity is PlayerActivity && activity.isSeriesVod) return
             val vod = AppSettings.lastSeriesVod()
-            if (vod != null) {
+            if (vod != null && vod.isSeries) {
                 openVod(activity, sourceId, vod, startPaused = true)
                 return
             }
+            // Corrupt / movie-tagged slot — fall back to catalog.
+            AppSettings.lastSeriesHub = AppScreen.SERIES
         }
         if (activity is CatalogActivity && activity.currentKind == ContentKind.SERIES) return
         openCatalog(activity, sourceId, ContentKind.SERIES)
@@ -89,10 +91,11 @@ object ModeNav {
         if (AppSettings.lastMoviesHub == AppScreen.STREAMING_MOVIE) {
             if (activity is PlayerActivity && activity.isMovieVod) return
             val vod = AppSettings.lastMovieVod()
-            if (vod != null) {
+            if (vod != null && !vod.isSeries) {
                 openVod(activity, sourceId, vod, startPaused = true)
                 return
             }
+            AppSettings.lastMoviesHub = AppScreen.MOVIES
         }
         if (activity is CatalogActivity && activity.currentKind == ContentKind.MOVIES) return
         openCatalog(activity, sourceId, ContentKind.MOVIES)

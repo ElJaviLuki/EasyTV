@@ -151,16 +151,14 @@ object AppSettings {
 
     fun lastSeriesVod(): VodPlayback? =
         readVod(PREFIX_SERIES_VOD)?.takeIf { it.isSeries }
-            ?: legacyVod()?.takeIf { it.isSeries }
 
     fun lastMovieVod(): VodPlayback? =
         readVod(PREFIX_MOVIE_VOD)?.takeIf { !it.isSeries }
-            ?: legacyVod()?.takeIf { !it.isSeries }
 
     fun lastVodPlayback(): VodPlayback? = when (lastScreen) {
         AppScreen.STREAMING_SERIES -> lastSeriesVod()
         AppScreen.STREAMING_MOVIE -> lastMovieVod()
-        else -> lastSeriesVod() ?: lastMovieVod() ?: legacyVod()
+        else -> lastSeriesVod() ?: lastMovieVod()
     }
 
     private fun writeVod(
