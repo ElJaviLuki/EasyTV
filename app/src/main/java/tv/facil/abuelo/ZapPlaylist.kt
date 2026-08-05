@@ -19,12 +19,20 @@ object ZapPlaylist {
 
     fun indexOfUrl(url: String): Int = items.indexOfFirst { it.url == url }
 
+    /**
+     * Next/previous channel. Respects [AppSettings.zapWrapAround]
+     * (default: no wrap — returns null at the ends).
+     */
     fun neighbor(url: String, delta: Int): CatalogItem? {
         val list = items
         if (list.isEmpty()) return null
         val idx = indexOfUrl(url)
         if (idx < 0) return null
-        val next = (idx + delta).mod(list.size)
-        return list[next]
+        val next = idx + delta
+        return when {
+            next in list.indices -> list[next]
+            AppSettings.zapWrapAround -> list[next.mod(list.size)]
+            else -> null
+        }
     }
 }
