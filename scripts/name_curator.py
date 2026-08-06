@@ -29,6 +29,8 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r":\s*$", re.IGNORECASE), r""),
 
     (re.compile(r"\b((UHD|4K|HDR|SD|HD|FHD)\/)*(UHD|4K|HDR|SD|HD|FHD)\b", re.IGNORECASE), r""),
+    # Quality glued to channel number: "Eurosport 1HD" → "Eurosport 1"
+    (re.compile(r"(?<=\d)(?:UHD|4K|HDR|SD|HD|FHD)\b", re.IGNORECASE), r""),
     (re.compile(r"\s*\(backup\s*(?:[0-9]+)?\s*\)\s*$", re.IGNORECASE), r""),
     (re.compile(r"\s*\((?:Orange|Movistar\+|M\+|LaLiga\+)\)\s*$", re.IGNORECASE), r""),
 
@@ -45,11 +47,12 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     # Typo corrections
     (re.compile(r"^\s*Canal\s+Sur\s+A\s*$", re.IGNORECASE), "Canal Sur"),
     (re.compile(r"^\s*CanalSur\s*$", re.IGNORECASE), "Canal Sur"),
-    (re.compile(r"^\s*CANALE?\s+EXTREMADURA\s*$", re.IGNORECASE), "Canal Extremadura"),
+    (re.compile(r"^\s*(?:CANALE?\s+)?EXTREMADURA(?:\s*TV)?\s*$", re.IGNORECASE), "Canal Extremadura"),
     (re.compile(r"^\s*LA Sexta", re.IGNORECASE), "laSexta"),
     (re.compile(r"\bAVTAEL|AVATEL\b", re.IGNORECASE), r""),
     (re.compile(r"\bLALIGA\s+HYPERMOTION\s+TV\b", re.IGNORECASE), "LALIGATV HYPERMOTION"),
-    (re.compile(r"24H TVE", re.IGNORECASE), "24 Horas"),
+    (re.compile(r"^\s*24H(?:\s*TVE)?\s*$", re.IGNORECASE), "24 Horas"),
+    (re.compile(r"^\s*24\s*Horas\s*$", re.IGNORECASE), "24 Horas"),
     (re.compile(r"Divinty", re.IGNORECASE), "Divinity"),
 
     # Same Spanish channel, different IPTV spellings
@@ -57,13 +60,21 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\s*Warner(?:\s+Bros\.?)?\s*TV\s*$", re.IGNORECASE), "Warner Bros. TV"),
     (re.compile(r"^\s*Real\s+Madrid(?:\s*TV)?\s*$", re.IGNORECASE), "Real Madrid TV"),
     (re.compile(r"^\s*Disney\s*(?:Junior|Jr\.?)\s*$", re.IGNORECASE), "Disney Junior"),
-    (re.compile(r"^\s*Disney\s+(?:Channel|Chanel)\s*$", re.IGNORECASE), "Disney Channel"),
+    (re.compile(r"^\s*Disney\s+(?:Channel|Chanel|Ch)\s*$", re.IGNORECASE), "Disney Channel"),
+    (re.compile(r"^\s*IB\s*3(?:\s*Global)?\s*$", re.IGNORECASE), "IB3 Global"),
+    (re.compile(r"^\s*TV\s*Canarias?\s*$", re.IGNORECASE), "TV Canaria"),
+    (re.compile(r"^\s*Sol\s*M(?:ú|u|fa)?sica\s*$", re.IGNORECASE), "Sol Música"),
+    (re.compile(r"^\s*GOL\s*TV\s*$", re.IGNORECASE), "GOL PLAY"),
+    (re.compile(r"^\s*#?\s*Vamos\s*$", re.IGNORECASE), "Vamos 1"),
+    (re.compile(r"^\s*(?:TDP|TELEDEPORTES?|Teledeporte)\s*$", re.IGNORECASE), "TELEDEPORTE"),
     (re.compile(r"^\s*Nick\s*(?:Junior|Jr\.?)\s*$", re.IGNORECASE), "Nick Junior"),
     # After Nick Junior: bare Nick ≡ Nickelodeon (do not use a loose Nick\b here).
     (re.compile(r"^\s*(?:Nickelodeon|Nick)\s*$", re.IGNORECASE), "Nickelodeon"),
     (re.compile(r"^\s*Iberalia(?:\s*TV)?\s*$", re.IGNORECASE), "Iberalia TV"),
     (re.compile(r"^\s*Iberalia(?:\s*100\s*%?)?\s*Caza\s*$", re.IGNORECASE), "Iberalia Caza"),
     (re.compile(r"^\s*Iberalia(?:\s*100\s*%?)?\s*Pesca\s*$", re.IGNORECASE), "Iberalia Pesca"),
+    (re.compile(r"^\s*El\s*Toro(?:\s*TV)?\s*$", re.IGNORECASE), "El Toro TV"),
+    (re.compile(r"^\s*DKiss(?:\s*TV)?\s*$", re.IGNORECASE), "DKiss"),
 
     (re.compile(r"^\s*Nat\s*Geo\s*$", re.IGNORECASE), "NAT GEO"),
     (re.compile(r"^\s*Nat\s*Geo\s+Wild\s*$", re.IGNORECASE), "Nat Geo Wild"),
