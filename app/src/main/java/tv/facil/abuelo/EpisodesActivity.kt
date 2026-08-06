@@ -45,8 +45,6 @@ class EpisodesActivity : AppCompatActivity() {
         AppSettings.lastScreen = AppScreen.SERIES
 
         binding.title.text = seriesName
-        binding.backButton.text = getString(R.string.back_series)
-        binding.backButton.setOnClickListener { finish() }
         binding.categoryList.visibility = View.VISIBLE
 
         categoryAdapter = CategoryAdapter(emptyList(), selectedCategory) { category ->
@@ -97,7 +95,6 @@ class EpisodesActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 binding.loading.visibility = View.GONE
                 binding.status.text = getString(R.string.load_error) + " (${e.message})"
-                binding.backButton.requestFocus()
             }
         }
     }

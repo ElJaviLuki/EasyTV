@@ -36,7 +36,6 @@ class SettingsActivity : AppCompatActivity() {
             AppSettings.zapWrapAround = !AppSettings.zapWrapAround
             refreshZapToggle()
         }
-        binding.backButton.setOnClickListener { ModeNav.leaveSettings(this, sourceId) }
         binding.toggleZapWrap.requestFocus()
     }
 

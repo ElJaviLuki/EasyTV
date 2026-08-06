@@ -14,19 +14,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:textAppearance="@style/Text.Hero"
-        app:layout_constraintEnd_toStartOf="@id/backButton"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <TextView
-        android:id="@+id/backButton"
-        style="@style/RowFocusable"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/back_servers"
-        android:textAppearance="@style/Text.Caption"
-        android:textColor="@color/text_primary"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView

@@ -31,13 +31,4 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="36dp"
         android:textAppearance="@style/Text.Title" />
-
-    <TextView
-        android:id="@+id/backButton"
-        style="@style/RowFocusable"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="36dp"
-        android:text="@string/back_section"
-        android:textAppearance="@style/Text.Body" />
 </LinearLayout>

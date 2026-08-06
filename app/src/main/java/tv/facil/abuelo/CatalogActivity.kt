@@ -91,11 +91,6 @@ class CatalogActivity : AppCompatActivity() {
         }
 
         binding.title.text = "${source.name} · ${currentKind.title}"
-        binding.backButton.text = when {
-            fromTv && currentKind == ContentKind.LIVE -> getString(R.string.back_to_tv)
-            else -> getString(R.string.back_section)
-        }
-        binding.backButton.setOnClickListener { navigateBack() }
         return true
     }
 
@@ -197,7 +192,6 @@ class CatalogActivity : AppCompatActivity() {
                 binding.loading.visibility = View.GONE
                 if (cached.isEmpty()) {
                     binding.status.text = getString(R.string.load_error) + " (${e.message})"
-                    binding.backButton.requestFocus()
                 } else {
                     binding.status.text =
                         "${cached.size} ${currentKind.loadingLabel} (caché) · sin red"

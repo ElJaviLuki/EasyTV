@@ -11,9 +11,6 @@
     <string name="channels_title">Canales</string>
     <string name="all_categories">Todas</string>
     <string name="retry">Reintentar</string>
-    <string name="back_servers">Cambiar lista</string>
-    <string name="back_section">Atrás</string>
-    <string name="back_series">Volver a series</string>
     <string name="episode_ended">Episodio terminado</string>
     <string name="next_episode">Siguiente episodio</string>
     <string name="next_episode_countdown">Siguiente episodio (%1$d)</string>
