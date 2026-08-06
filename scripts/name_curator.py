@@ -25,41 +25,32 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\s*ES\s+\([A-Z]+\)\s*", re.IGNORECASE), r""),
     (re.compile(r"^\s*ES\s+", re.IGNORECASE), r""),
     (re.compile(r"\s+ES\s*$", re.IGNORECASE), r""),
-    # Do not require whitespace after (ES): "(ES) (Orange)" would glue → "HDR(Orange)"
-    # and then the Orange rule (needs \\s+ before '(') would miss forever.
     (re.compile(r"\s*\(ES\)\s*", re.IGNORECASE), r" "),
     (re.compile(r":\s*$", re.IGNORECASE), r""),
 
-    (re.compile(r"\bAVTAEL|AVATEL\b", re.IGNORECASE), r""),
-
-    # Quality tokens (leave gaps → collapsed at the end)
     (re.compile(r"\b((UHD|4K|HDR|SD|HD|FHD)\/)*(UHD|4K|HDR|SD|HD|FHD)\b", re.IGNORECASE), r""),
-
-    # Provider / pack suffixes AFTER quality+(ES), so "(ES) (Orange)" still works
     (re.compile(r"\s*\(backup\s*(?:[0-9]+)?\s*\)\s*$", re.IGNORECASE), r""),
-    (re.compile(r"\s*\(Orange\)\s*$", re.IGNORECASE), r""),
-    (re.compile(r"\s*\(M\+\)\s*$", re.IGNORECASE), r""),
-    (re.compile(r"\s*\(Movistar\+\)\s*$", re.IGNORECASE), r""),
-    (re.compile(r"\s*\(LaLiga\+\)\s*$", re.IGNORECASE), r""),
+    (re.compile(r"\s*\(Orange|Movistar\+|M\+|LaLiga\+\)\s*$", re.IGNORECASE), r""),
 
-    (re.compile(r"^\s*M\s+A3SERIES\b", re.IGNORECASE), "A3SERIES"),
-    (re.compile(r"^\s*M\s+BOM\s+CINE\b", re.IGNORECASE), "BOM CINE"),
-    (re.compile(r"^\s*M\s+DARK\b", re.IGNORECASE), "DARK"),
-    (re.compile(r"^\s*M\s+WB\s*tv\b", re.IGNORECASE), "Warner Bros. TV"),
-    # '+' is non-word: do not use \\b after Movistar+ (it never matches).
+    # Non-Movistar names but channels packed by Movistar; remove Movistar prefix.
+    (re.compile(r"^\s*M\s+A3SERIES", re.IGNORECASE), "A3SERIES"),
+    (re.compile(r"^\s*M\s+BOM\s+CINE", re.IGNORECASE), "BOM CINE"),
+    (re.compile(r"^\s*M\s+DARK", re.IGNORECASE), "DARK"),
+    (re.compile(r"^\s*M\s+WB\s*tv", re.IGNORECASE), "Warner Bros. TV"),
     (re.compile(r"^\s*M\s+Movistar\+", re.IGNORECASE), "Movistar+"),
     (re.compile(r"^\s*M\s+LALIGATV", re.IGNORECASE), "LALIGATV"),
     (re.compile(r"^\s*M\s+SKY\s+SHOWTIME", re.IGNORECASE), "SKY SHOWTIME"),
     (re.compile(r"^\s*M\s+WARNER\s+TV", re.IGNORECASE), "Warner Bros. TV"),
 
+    # Typo corrections
     (re.compile(r"^\s*Canal\s+Sur\s+A\s*$", re.IGNORECASE), "Canal Sur"),
     (re.compile(r"^\s*CANALE?\s+EXTREMADURA\s*$", re.IGNORECASE), "Canal Extremadura"),
     (re.compile(r"^\s*LA Sexta", re.IGNORECASE), "laSexta"),
-
-    # El resto de M es Movistar
-    (re.compile(r"^\s*M\s+(.*)\s*$", re.IGNORECASE), r"Movistar \1"),
-
+    (re.compile(r"\bAVTAEL|AVATEL\b", re.IGNORECASE), r""),
     (re.compile(r"\bLALIGA\s+HYPERMOTION\s+TV\b", re.IGNORECASE), "LALIGATV HYPERMOTION"),
+
+    # El resto de M es Movistar Original.
+    (re.compile(r"^\s*M\s+(.*)\s*$", re.IGNORECASE), r"Movistar \1"),
 ]
 
 
