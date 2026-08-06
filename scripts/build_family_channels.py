@@ -159,7 +159,8 @@ _CAZA_PESCA = re.compile(
 )
 _ANIMALES = re.compile(
     r"(?i)^\s*(?:nat\s*geo(?:\s*wild)?|national\s*geographic|discovery(?:\s*channel)?|"
-    r"canal\s*odisea|odisea|dmax|historia|animal\s*planet|fauna)\s*$"
+    r"canal\s*odisea|odisea|dmax|historia|animal\s*planet|fauna|"
+    r"el\s*toro(?:\s*tv)?|onetoro|torole)\s*$"
 )
 
 # Deportes: classify into ONE subsection (first match wins).
@@ -239,7 +240,7 @@ _MISC_MUSICA = re.compile(
 _MISC_CINE_SERIES = re.compile(
     r"""(?ix)
         (?:
-            paramount|\btnt\b|tr3ce|trece\s*tv|rakuten\w*|sonyone|\bblaze\b|
+            paramount|\btnt\b|tr3ce|trece(?:\s*tv)?|rakuten\w*|sonyone|\bblaze\b|
             vin\s*tv|thriller|popup|originales|resistencia|portada|
             movistar\s*\+|movistar\s*plus|m\+\s*thriller|
             pel[ií]culas?|\bpelis\b|\bmovie\b|\bfilm\b|series|drama|comedia|

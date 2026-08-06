@@ -23,6 +23,11 @@
         android:usesCleartextTraffic="true">
 
         <activity
+            android:name=".SourcePickerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.EasyTV" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.EasyTV" />
@@ -55,6 +60,7 @@
             android:banner="@drawable/banner"
             android:exported="true"
             android:logo="@drawable/ic_launcher"
+            android:launchMode="singleTop"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -62,5 +68,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".HomeGuideAccessibilityService"
+            android:exported="false"
+            android:label="@string/home_guide_accessibility_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/home_guide_accessibility_service" />
+        </service>
     </application>
 </manifest>

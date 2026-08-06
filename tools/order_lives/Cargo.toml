@@ -1,0 +1,13 @@
+[package]
+name = "order_lives"
+version = "0.1.0"
+edition = "2021"
+description = "Reorder Canal lives by server, then real TS resolution×bitrate (no full stream)"
+
+[dependencies]
+anyhow = "1"
+h264-reader = "0.8"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -7,5 +7,7 @@ class EasyTvApp : Application() {
         super.onCreate()
         AppSettings.init(this)
         PlaylistStore.load(this)
+        ChannelsCleanStore.load(this)
+        AppForeground.install(this)
     }
 }

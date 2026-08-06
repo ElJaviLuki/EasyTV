@@ -13,10 +13,18 @@ import kotlinx.coroutines.withContext
 /**
  * Color-button navigation and resume helpers.
  *
- * Rojo = TV · Verde = Series · Amarillo = Películas · Azul = Configuración
+ * Rojo = TV · Verde = Series · Amarillo = Películas ·
+ * Azul ×6 (rápido) = Configuración
  */
 object ModeNav {
     const val EXTRA_FROM_TV = "from_tv"
+
+    /** Consecutive blue presses needed to open settings (accidental-press guard). */
+    private const val BLUE_SETTINGS_PRESSES = 6
+    private const val BLUE_SETTINGS_WINDOW_MS = 900L
+
+    private var bluePressCount: Int = 0
+    private var lastBluePressAt: Long = 0L
 
     /** Finish current screen unless it's Main (kept under) or Player (reused via singleTop). */
     private fun finishAfterNav(activity: AppCompatActivity) {
@@ -27,28 +35,64 @@ object ModeNav {
     private fun playerIntentFlags(): Int =
         Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
 
+    private fun resetBluePresses() {
+        bluePressCount = 0
+        lastBluePressAt = 0L
+    }
+
+    /** True when the 6th rapid blue press should open settings. */
+    private fun registerBluePress(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastBluePressAt > BLUE_SETTINGS_WINDOW_MS) {
+            bluePressCount = 0
+        }
+        lastBluePressAt = now
+        bluePressCount += 1
+        if (bluePressCount >= BLUE_SETTINGS_PRESSES) {
+            resetBluePresses()
+            return true
+        }
+        return false
+    }
+
     fun handleColorKey(activity: AppCompatActivity, keyCode: Int, sourceId: String): Boolean {
-        if (sourceId.isBlank()) return false
+        val sid = sourceId.ifBlank { AppSettings.preferredSourceId() }
+        // TV (red) works without a VOD playlist; series/movies need one.
+        if (sid.isBlank() && keyCode != KeyEvent.KEYCODE_PROG_RED &&
+            keyCode != KeyEvent.KEYCODE_PROG_BLUE
+        ) {
+            return false
+        }
         if (activity is PlayerActivity) {
             activity.persistPlaybackForNav()
         }
         return when (keyCode) {
             KeyEvent.KEYCODE_PROG_RED -> {
+                resetBluePresses()
                 if (activity is PlayerActivity && activity.isLiveZap) return true
-                openTv(activity, sourceId)
+                openTv(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_GREEN -> {
-                openSeries(activity, sourceId)
+                resetBluePresses()
+                if (sid.isBlank()) return true
+                openSeries(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_YELLOW -> {
-                openMovies(activity, sourceId)
+                resetBluePresses()
+                if (sid.isBlank()) return true
+                openMovies(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_BLUE -> {
-                if (activity is SettingsActivity) return true
-                openSettings(activity, sourceId, currentScreenFor(activity))
+                if (activity is SettingsActivity) {
+                    resetBluePresses()
+                    return true
+                }
+                if (registerBluePress()) {
+                    openSettings(activity, sid, currentScreenFor(activity))
+                }
                 true
             }
             else -> false
@@ -127,8 +171,10 @@ object ModeNav {
         kind: ContentKind,
         fromTv: Boolean = false
     ) {
+        val sid = sourceId.ifBlank { AppSettings.preferredSourceId() }
+        if (kind != ContentKind.LIVE && sid.isBlank()) return
         if (activity is CatalogActivity && activity.currentKind == kind) {
-            AppSettings.lastSourceId = sourceId
+            if (sid.isNotBlank()) AppSettings.lastSourceId = sid
             AppSettings.lastScreen = when (kind) {
                 ContentKind.LIVE -> AppScreen.CHANNELS
                 ContentKind.SERIES -> AppScreen.SERIES
@@ -136,7 +182,7 @@ object ModeNav {
             }
             return
         }
-        AppSettings.lastSourceId = sourceId
+        if (sid.isNotBlank()) AppSettings.lastSourceId = sid
         AppSettings.lastScreen = when (kind) {
             ContentKind.LIVE -> AppScreen.CHANNELS
             ContentKind.SERIES -> {
@@ -150,7 +196,7 @@ object ModeNav {
         }
         activity.startActivity(
             Intent(activity, CatalogActivity::class.java)
-                .putExtra(CatalogActivity.EXTRA_SOURCE_ID, sourceId)
+                .putExtra(CatalogActivity.EXTRA_SOURCE_ID, sid)
                 .putExtra(CatalogActivity.EXTRA_KIND, kind.name)
                 .putExtra(EXTRA_FROM_TV, fromTv || kind == ContentKind.LIVE)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -163,15 +209,16 @@ object ModeNav {
 
     fun openTv(activity: AppCompatActivity, sourceId: String) {
         if (activity is PlayerActivity && activity.isLiveZap) return
-        AppSettings.lastSourceId = sourceId
+        val sid = sourceId.ifBlank { AppSettings.preferredSourceId() }
+        if (sid.isNotBlank()) AppSettings.lastSourceId = sid
         AppSettings.lastScreen = AppScreen.TV
         activity.lifecycleScope.launch {
-            val channel = resolveLiveChannel(activity, sourceId) ?: run {
-                openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
+            val channel = resolveLiveChannel(activity, sid) ?: run {
+                openCatalog(activity, sid, ContentKind.LIVE, fromTv = true)
                 return@launch
             }
             EpisodeQueue.clear()
-            startLivePlayer(activity, sourceId, channel)
+            startLivePlayer(activity, sid, channel)
         }
     }
 
@@ -260,13 +307,26 @@ object ModeNav {
 
     /** Resume last screen from cold start. Returns true if navigation started. */
     fun tryResume(activity: AppCompatActivity): Boolean {
-        val sourceId = AppSettings.lastSourceId
+        val sourceId = AppSettings.preferredSourceId()
+        when (AppSettings.lastScreen) {
+            AppScreen.TV -> {
+                openTv(activity, sourceId)
+                return true
+            }
+            AppScreen.CHANNELS -> {
+                openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
+                return true
+            }
+            AppScreen.SETTINGS -> {
+                openSettings(activity, sourceId, AppSettings.settingsReturnScreen)
+                return true
+            }
+            else -> Unit
+        }
         if (sourceId.isBlank() || PlaylistStore.byId(sourceId) == null) return false
         when (AppSettings.lastScreen) {
-            AppScreen.TV -> openTv(activity, sourceId)
             AppScreen.SERIES -> openCatalog(activity, sourceId, ContentKind.SERIES)
             AppScreen.MOVIES -> openCatalog(activity, sourceId, ContentKind.MOVIES)
-            AppScreen.CHANNELS -> openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
             AppScreen.STREAMING_SERIES, AppScreen.STREAMING_MOVIE -> {
                 val vod = if (AppSettings.lastScreen == AppScreen.STREAMING_SERIES) {
                     AppSettings.lastSeriesVod()
@@ -284,11 +344,7 @@ object ModeNav {
                     }
                 )
             }
-            AppScreen.SETTINGS -> openSettings(
-                activity,
-                sourceId,
-                AppSettings.settingsReturnScreen
-            )
+            else -> return false
         }
         return true
     }
@@ -298,14 +354,16 @@ object ModeNav {
         sourceId: String,
         channel: CatalogItem
     ) {
+        val play = ChannelsCleanStore.preferred(channel)
         activity.startActivity(
             Intent(activity, PlayerActivity::class.java)
-                .putExtra(PlayerActivity.EXTRA_URL, channel.url)
-                .putExtra(PlayerActivity.EXTRA_NAME, channel.name)
-                .putExtra(PlayerActivity.EXTRA_GROUP, channel.group)
-                .putExtra(PlayerActivity.EXTRA_NUMBER, channel.number)
-                .putExtra(PlayerActivity.EXTRA_LOGO, channel.logo)
-                .putExtra(PlayerActivity.EXTRA_STREAM_ID, channel.streamId ?: -1)
+                .putExtra(PlayerActivity.EXTRA_URL, play.url)
+                .putExtra(PlayerActivity.EXTRA_NAME, play.name)
+                .putExtra(PlayerActivity.EXTRA_GROUP, play.group)
+                .putExtra(PlayerActivity.EXTRA_NUMBER, play.number)
+                .putExtra(PlayerActivity.EXTRA_LOGO, play.logo)
+                .putExtra(PlayerActivity.EXTRA_STREAM_ID, play.streamId ?: -1)
+                .putExtra(PlayerActivity.EXTRA_CHANNEL_ID, play.channelId)
                 .putExtra(PlayerActivity.EXTRA_SOURCE_ID, sourceId)
                 .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, true)
                 .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, false)
@@ -337,23 +395,33 @@ object ModeNav {
 
     suspend fun resolveLiveChannel(context: Context, sourceId: String): CatalogItem? =
         withContext(Dispatchers.IO) {
-            val source = PlaylistStore.byId(sourceId) ?: return@withContext null
-            var live = PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
+            var live = PlaylistRepository.memoryCached(sourceId, ContentKind.LIVE)
             if (live.isEmpty()) {
-                live = PlaylistRepository.diskCached(context, source.id, ContentKind.LIVE)
+                live = PlaylistRepository.diskCached(context, sourceId, ContentKind.LIVE)
             }
             if (live.isEmpty()) {
-                runCatching {
-                    live = PlaylistRepository.loadCatalog(context, source, ContentKind.LIVE)
+                val source = PlaylistStore.byId(sourceId)
+                    ?: PlaylistStore.sources().firstOrNull()
+                if (source != null) {
+                    runCatching {
+                        live = PlaylistRepository.loadCatalog(context, source, ContentKind.LIVE)
+                    }
+                } else {
+                    live = ChannelsCleanStore.ensureLoaded(context)
+                        .map { ChannelsCleanStore.preferred(it) }
                 }
             }
-            val playable = live.filter { it.url.isNotBlank() }
+            val playable = live.filter { it.url.isNotBlank() || it.lives.isNotEmpty() }
+                .map { ChannelsCleanStore.preferred(it) }
             if (playable.isEmpty()) return@withContext null
             ZapPlaylist.set(playable)
             val last = AppSettings.lastLiveItem()
             if (last != null) {
                 playable.find {
-                    it.url == last.url || (last.streamId != null && it.streamId == last.streamId)
+                    (last.channelId.isNotBlank() && it.channelId == last.channelId) ||
+                        it.url == last.url ||
+                        (last.streamId != null && it.streamId == last.streamId) ||
+                        it.lives.any { live -> live.url == last.url }
                 } ?: playable.first()
             } else {
                 playable.first()

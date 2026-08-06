@@ -32,6 +32,12 @@ data class PlaylistSource(
         "$baseUrl/series/$username/$password/$episodeId.${ext.ifBlank { "mp4" }}"
 }
 
+/** One playable live URL (server + stream). Ordered fallbacks live on [CatalogItem.lives]. */
+data class LiveEndpoint(
+    val server: String,
+    val url: String
+)
+
 /** Playable row (live/movie) or series entry (url empty, seriesId set). */
 data class CatalogItem(
     val number: Int,
@@ -40,8 +46,14 @@ data class CatalogItem(
     val logo: String?,
     val url: String,
     val seriesId: Int? = null,
-    val streamId: Int? = null
-)
+    val streamId: Int? = null,
+    /** Stable id from channels_clean.json (empty for VOD). */
+    val channelId: String = "",
+    /** Ordered live fallbacks; empty for movies/series. */
+    val lives: List<LiveEndpoint> = emptyList()
+) {
+    val hasLiveFallbacks: Boolean get() = lives.size > 1
+}
 
 data class NowProgram(
     val title: String,

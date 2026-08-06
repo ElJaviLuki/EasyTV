@@ -38,6 +38,14 @@ android {
     }
 }
 
+/** Keep APK live guide in sync with secrets/channels_clean.json. */
+tasks.register<Copy>("syncChannelsCleanAsset") {
+    from(rootProject.file("secrets/channels_clean.json"))
+    into(layout.projectDirectory.dir("src/main/assets"))
+    onlyIf { rootProject.file("secrets/channels_clean.json").isFile }
+}
+tasks.named("preBuild").configure { dependsOn("syncChannelsCleanAsset") }
+
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")

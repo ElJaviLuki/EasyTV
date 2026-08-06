@@ -21,11 +21,22 @@ object PlaylistRepository {
 
     private fun memKey(sourceId: String, kind: ContentKind) = "${sourceId}_${kind.apiKey}"
 
-    fun memoryCached(sourceId: String, kind: ContentKind): List<CatalogItem> =
-        memory[memKey(sourceId, kind)].orEmpty()
+    fun memoryCached(sourceId: String, kind: ContentKind): List<CatalogItem> {
+        memory[memKey(sourceId, kind)]?.takeIf { it.isNotEmpty() }?.let { return it }
+        if (kind == ContentKind.LIVE) {
+            val bundled = ChannelsCleanStore.channels()
+            if (bundled.isNotEmpty()) return bundled.map { ChannelsCleanStore.preferred(it) }
+        }
+        return emptyList()
+    }
 
-    fun diskCached(context: Context, sourceId: String, kind: ContentKind): List<CatalogItem> =
-        CatalogCache.read(context, sourceId, kind)
+    fun diskCached(context: Context, sourceId: String, kind: ContentKind): List<CatalogItem> {
+        if (kind == ContentKind.LIVE) {
+            val bundled = ChannelsCleanStore.ensureLoaded(context)
+            if (bundled.isNotEmpty()) return bundled.map { ChannelsCleanStore.preferred(it) }
+        }
+        return CatalogCache.read(context, sourceId, kind)
+    }
 
     suspend fun loadCatalog(
         context: Context,
@@ -39,13 +50,16 @@ object PlaylistRepository {
         }
 
         val items = when (kind) {
-            ContentKind.LIVE -> loadLive(source)
+            ContentKind.LIVE -> loadLiveChannels(context)
             ContentKind.MOVIES -> loadMovies(source)
             ContentKind.SERIES -> loadSeries(source)
         }
         if (items.isEmpty()) error("Lista vacía")
         memory[key] = items
-        CatalogCache.write(context.applicationContext, source.id, kind, items)
+        // Live guide is bundled — no TSV disk cache needed.
+        if (kind != ContentKind.LIVE) {
+            CatalogCache.write(context.applicationContext, source.id, kind, items)
+        }
         items
     }
 
@@ -59,14 +73,13 @@ object PlaylistRepository {
             items
         }
 
-    private suspend fun loadLive(source: PlaylistSource): List<CatalogItem> = coroutineScope {
-        val cats = async {
-            httpGet("${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_live_categories")
+    /** Family TV list from assets (independent of Xtream playlist). */
+    private fun loadLiveChannels(context: Context): List<CatalogItem> {
+        val items = ChannelsCleanStore.ensureLoaded(context).map { ChannelsCleanStore.preferred(it) }
+        if (items.isEmpty()) {
+            error(ChannelsCleanStore.errorMessage() ?: "Sin canales")
         }
-        val streams = async {
-            httpGet("${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_live_streams")
-        }
-        XtreamApi.parseLiveStreams(streams.await(), source, XtreamApi.parseCategories(cats.await()))
+        return items
     }
 
     private suspend fun loadMovies(source: PlaylistSource): List<CatalogItem> = coroutineScope {

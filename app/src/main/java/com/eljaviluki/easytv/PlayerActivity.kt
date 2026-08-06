@@ -29,6 +29,7 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_NUMBER = "number"
         const val EXTRA_LOGO = "logo"
         const val EXTRA_STREAM_ID = "stream_id"
+        const val EXTRA_CHANNEL_ID = "channel_id"
         const val EXTRA_SOURCE_ID = "source_id"
         /** When true, CH+/CH- zap within [ZapPlaylist]. */
         const val EXTRA_ZAP_ENABLED = "zap_enabled"
@@ -48,6 +49,9 @@ class PlayerActivity : AppCompatActivity() {
         private const val PLAY_ICON_FLASH_MS = 700L
         private const val CHANNEL_ENTRY_DELAY_MS = 2500L
         private const val CHANNEL_ENTRY_MAX_DIGITS = 5
+        /** If no first video frame by then, treat as black/broken and rotate live. */
+        private const val LIVE_FRAME_TIMEOUT_MS = 12_000L
+        private const val LIVE_FALLBACK_GAP_MS = 400L
     }
 
     private lateinit var binding: ActivityPlayerBinding
@@ -58,6 +62,11 @@ class PlayerActivity : AppCompatActivity() {
     private var currentNumber: Int = 0
     private var currentLogo: String? = null
     private var currentStreamId: Int? = null
+    private var currentChannelId: String = ""
+    private var currentLives: List<LiveEndpoint> = emptyList()
+    private var liveIndex: Int = 0
+    private var liveFallbackAttempts: Int = 0
+    private var sawFirstFrame: Boolean = false
     private var sourceId: String = ""
     private var zapEnabled: Boolean = false
     private var seekEnabled: Boolean = false
@@ -84,6 +93,11 @@ class PlayerActivity : AppCompatActivity() {
     private val hideOverlay = Runnable {
         stopProgressTicks()
         binding.overlay.visibility = View.GONE
+    }
+    private val liveFrameWatchdog = Runnable {
+        if (zapEnabled && !sawFirstFrame) {
+            rotateLiveFallback("timeout")
+        }
     }
     private val progressTick = object : Runnable {
         override fun run() {
@@ -124,8 +138,19 @@ class PlayerActivity : AppCompatActivity() {
             binding.playerView.useController = false
             exo.addListener(object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
+                    if (zapEnabled && currentLives.isNotEmpty()) {
+                        rotateLiveFallback(error.errorCodeName)
+                        return
+                    }
                     binding.nowEpg.text = "Error: ${error.errorCodeName}"
                     showOverlay(permanent = true)
+                }
+
+                override fun onRenderedFirstFrame() {
+                    if (!zapEnabled) return
+                    sawFirstFrame = true
+                    handler.removeCallbacks(liveFrameWatchdog)
+                    markLiveSuccess()
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -158,7 +183,9 @@ class PlayerActivity : AppCompatActivity() {
         currentNumber = intent.getIntExtra(EXTRA_NUMBER, 0)
         currentLogo = intent.getStringExtra(EXTRA_LOGO)
         currentStreamId = intent.getIntExtra(EXTRA_STREAM_ID, -1).takeIf { it > 0 }
+        currentChannelId = intent.getStringExtra(EXTRA_CHANNEL_ID).orEmpty()
         sourceId = intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()
+            .ifBlank { AppSettings.preferredSourceId() }
         zapEnabled = intent.getBooleanExtra(EXTRA_ZAP_ENABLED, false)
         seekEnabled = intent.getBooleanExtra(EXTRA_SEEK_ENABLED, false)
         // Only trust explicit extras — never inherit EpisodeQueue (would tag movies as series).
@@ -169,11 +196,19 @@ class PlayerActivity : AppCompatActivity() {
         startPaused = intent.getBooleanExtra(EXTRA_START_PAUSED, false)
         if (currentUrl.isBlank()) return false
 
+        if (zapEnabled) {
+            bindLivesForCurrentChannel()
+        } else {
+            currentLives = emptyList()
+            liveIndex = 0
+            liveFallbackAttempts = 0
+        }
+
         if (zapEnabled || isMovieVod) {
             EpisodeQueue.clear()
         }
 
-        AppSettings.lastSourceId = sourceId
+        if (sourceId.isNotBlank()) AppSettings.lastSourceId = sourceId
         when {
             zapEnabled -> AppSettings.lastScreen = AppScreen.TV
             isSeriesVod -> AppSettings.lastScreen = AppScreen.STREAMING_SERIES
@@ -183,17 +218,86 @@ class PlayerActivity : AppCompatActivity() {
         return true
     }
 
-    private fun playCurrent() {
+    private fun bindLivesForCurrentChannel() {
+        val fromZap = ZapPlaylist.items.find {
+            (currentChannelId.isNotBlank() && it.channelId == currentChannelId) ||
+                it.url == currentUrl ||
+                it.lives.any { live -> live.url == currentUrl }
+        }
+        val fromStore = if (currentChannelId.isNotBlank()) {
+            ChannelsCleanStore.byChannelId(currentChannelId)
+        } else null
+        val channel = fromZap ?: fromStore
+        currentLives = when {
+            channel != null && channel.lives.isNotEmpty() -> channel.lives
+            currentUrl.isNotBlank() -> listOf(LiveEndpoint("?", currentUrl))
+            else -> emptyList()
+        }
+        if (channel != null) {
+            if (currentChannelId.isBlank()) currentChannelId = channel.channelId
+            if (currentName.isBlank()) currentName = channel.name
+            if (currentNumber <= 0) currentNumber = channel.number
+            if (currentLogo == null) currentLogo = channel.logo
+            if (currentGroup.isBlank()) currentGroup = channel.group
+        }
+        liveIndex = currentLives.indexOfFirst { it.url == currentUrl }.takeIf { it >= 0 } ?: 0
+        if (currentLives.isNotEmpty()) {
+            currentUrl = currentLives[liveIndex].url
+            currentStreamId = ChannelsCleanStore.streamIdFromUrl(currentUrl) ?: currentStreamId
+        }
+        liveFallbackAttempts = 0
+        sawFirstFrame = false
+    }
+
+    private fun currentCatalogItem(): CatalogItem =
+        CatalogItem(
+            number = currentNumber,
+            name = currentName,
+            group = currentGroup,
+            logo = currentLogo,
+            url = currentUrl,
+            streamId = currentStreamId,
+            channelId = currentChannelId,
+            lives = currentLives
+        )
+
+    private fun markLiveSuccess() {
+        if (!zapEnabled || currentChannelId.isBlank() || currentUrl.isBlank()) return
+        AppSettings.saveSuccessfulLiveUrl(currentChannelId, currentUrl)
+        AppSettings.saveLastLive(currentCatalogItem())
+        liveFallbackAttempts = 0
+    }
+
+    private fun rotateLiveFallback(reason: String) {
+        if (!zapEnabled || currentLives.isEmpty()) {
+            binding.nowEpg.text = "Error: $reason"
+            showOverlay(permanent = true)
+            return
+        }
+        handler.removeCallbacks(liveFrameWatchdog)
+        liveFallbackAttempts += 1
+        liveIndex = (liveIndex + 1) % currentLives.size
+        currentUrl = currentLives[liveIndex].url
+        currentStreamId = ChannelsCleanStore.streamIdFromUrl(currentUrl)
+        sawFirstFrame = false
+        binding.nowEpg.text = getString(R.string.live_fallback)
+        showOverlay()
+        handler.postDelayed({ playCurrent(isFallback = true) }, LIVE_FALLBACK_GAP_MS)
+    }
+
+    private fun playCurrent(isFallback: Boolean = false) {
         dismissEndPrompt()
         clearChannelNumberEntry()
         if (!startPaused) clearTransportIcon()
         binding.infoNumber.text = if (currentNumber > 0) currentNumber.toString() else ""
         binding.nowPlaying.text = currentName
         binding.nowGroup.text = currentGroup
-        binding.nowEpg.text = when {
-            zapEnabled -> "Cargando guía…"
-            seekEnabled -> formatPositionHint()
-            else -> ""
+        if (!isFallback) {
+            binding.nowEpg.text = when {
+                zapEnabled -> "Cargando guía…"
+                seekEnabled -> formatPositionHint()
+                else -> ""
+            }
         }
         binding.infoLogo.load(currentLogo) {
             crossfade(true)
@@ -203,23 +307,16 @@ class PlayerActivity : AppCompatActivity() {
         binding.progressBar.visibility = if (seekEnabled) View.VISIBLE else View.GONE
         if (zapEnabled) {
             AppSettings.lastScreen = AppScreen.TV
-            AppSettings.saveLastLive(
-                CatalogItem(
-                    number = currentNumber,
-                    name = currentName,
-                    group = currentGroup,
-                    logo = currentLogo,
-                    url = currentUrl,
-                    streamId = currentStreamId
-                )
-            )
+            AppSettings.saveLastLive(currentCatalogItem())
         } else if (seekEnabled) {
             persistVodState()
         }
         updateProgressUi()
         showOverlay()
-        loadEpg()
+        if (!isFallback) loadEpg()
         val exo = player ?: return
+        handler.removeCallbacks(liveFrameWatchdog)
+        sawFirstFrame = false
         exo.setMediaItem(MediaItem.fromUri(currentUrl))
         exo.prepare()
         if (pendingStartPositionMs > 0L) {
@@ -232,20 +329,14 @@ class PlayerActivity : AppCompatActivity() {
         if (resumePaused) {
             showTransportIcon(playing = false)
         }
+        if (zapEnabled) {
+            handler.postDelayed(liveFrameWatchdog, LIVE_FRAME_TIMEOUT_MS)
+        }
     }
 
     fun persistPlaybackForNav() {
         if (zapEnabled) {
-            AppSettings.saveLastLive(
-                CatalogItem(
-                    number = currentNumber,
-                    name = currentName,
-                    group = currentGroup,
-                    logo = currentLogo,
-                    url = currentUrl,
-                    streamId = currentStreamId
-                )
-            )
+            AppSettings.saveLastLive(currentCatalogItem())
             AppSettings.lastScreen = AppScreen.TV
         } else if (seekEnabled) {
             persistVodState()
@@ -285,14 +376,25 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun applyItem(item: CatalogItem, live: Boolean) {
-        currentUrl = item.url
-        currentName = item.name
-        currentGroup = if (live) item.group else EpisodeQueue.seriesName.ifBlank { item.group }
-        currentNumber = item.number
-        currentLogo = item.logo
-        currentStreamId = item.streamId
+        val play = if (live) ChannelsCleanStore.preferred(item) else item
+        currentUrl = play.url
+        currentName = play.name
+        currentGroup = if (live) play.group else EpisodeQueue.seriesName.ifBlank { play.group }
+        currentNumber = play.number
+        currentLogo = play.logo
+        currentStreamId = play.streamId
+        currentChannelId = play.channelId
         zapEnabled = live
         seekEnabled = !live
+        if (live) {
+            currentLives = if (play.lives.isNotEmpty()) play.lives else listOf(LiveEndpoint("?", play.url))
+            liveIndex = currentLives.indexOfFirst { it.url == currentUrl }.takeIf { it >= 0 } ?: 0
+            liveFallbackAttempts = 0
+            sawFirstFrame = false
+            handler.removeCallbacks(liveFrameWatchdog)
+        } else {
+            currentLives = emptyList()
+        }
     }
 
     private fun loadEpg() {
@@ -357,31 +459,15 @@ class PlayerActivity : AppCompatActivity() {
         binding.btnBackToTv.isEnabled = false
         binding.btnBackToTv.text = getString(R.string.loading_tv)
 
-        val sid = sourceId.ifBlank { EpisodeQueue.sourceId }
-        val source = PlaylistStore.byId(sid)
-        if (source == null) {
-            binding.btnBackToTv.isEnabled = true
-            binding.btnBackToTv.text = getString(R.string.back_to_tv)
-            finish()
-            return
-        }
-
+        val sid = sourceId.ifBlank { EpisodeQueue.sourceId }.ifBlank { AppSettings.preferredSourceId() }
         lifecycleScope.launch {
             try {
-                var live = PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
-                if (live.isEmpty()) {
-                    live = PlaylistRepository.diskCached(applicationContext, source.id, ContentKind.LIVE)
-                }
-                if (live.isEmpty()) {
-                    live = PlaylistRepository.loadCatalog(applicationContext, source, ContentKind.LIVE)
-                }
-                val first = live.firstOrNull { it.url.isNotBlank() }
+                val channel = ModeNav.resolveLiveChannel(this@PlayerActivity, sid)
                     ?: error("Sin canales")
                 EpisodeQueue.clear()
-                ZapPlaylist.set(live)
-                sourceId = source.id
+                sourceId = sid
                 AppSettings.lastScreen = AppScreen.TV
-                applyItem(first, live = true)
+                applyItem(channel, live = true)
                 playCurrent()
             } catch (e: Exception) {
                 binding.btnBackToTv.isEnabled = true
@@ -528,7 +614,8 @@ class PlayerActivity : AppCompatActivity() {
     private fun zap(delta: Int) {
         if (!zapEnabled || endPromptVisible) return
         clearChannelNumberEntry()
-        val next = ZapPlaylist.neighbor(currentUrl, delta) ?: return
+        handler.removeCallbacks(liveFrameWatchdog)
+        val next = ZapPlaylist.neighbor(currentChannelId, currentUrl, delta) ?: return
         applyItem(next, live = true)
         playCurrent()
     }
@@ -716,6 +803,7 @@ class PlayerActivity : AppCompatActivity() {
         handler.removeCallbacks(resetCenterPresses)
         handler.removeCallbacks(hideTransportIconRunnable)
         handler.removeCallbacks(commitChannelEntry)
+        handler.removeCallbacks(liveFrameWatchdog)
         binding.playerView.player = null
         player?.release()
         player = null

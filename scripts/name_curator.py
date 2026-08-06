@@ -75,6 +75,7 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\s*Iberalia(?:\s*100\s*%?)?\s*Pesca\s*$", re.IGNORECASE), "Iberalia Pesca"),
     (re.compile(r"^\s*El\s*Toro(?:\s*TV)?\s*$", re.IGNORECASE), "El Toro TV"),
     (re.compile(r"^\s*DKiss(?:\s*TV)?\s*$", re.IGNORECASE), "DKiss"),
+    (re.compile(r"^\s*(?:TR3CE|TRECE(?:\s*TV)?)\s*$", re.IGNORECASE), "TRECE"),
 
     (re.compile(r"^\s*Nat\s*Geo\s*$", re.IGNORECASE), "NAT GEO"),
     (re.compile(r"^\s*Nat\s*Geo\s+Wild\s*$", re.IGNORECASE), "Nat Geo Wild"),
