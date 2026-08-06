@@ -30,7 +30,7 @@ RULES: list[tuple[re.Pattern[str], str]] = [
 
     (re.compile(r"\b((UHD|4K|HDR|SD|HD|FHD)\/)*(UHD|4K|HDR|SD|HD|FHD)\b", re.IGNORECASE), r""),
     (re.compile(r"\s*\(backup\s*(?:[0-9]+)?\s*\)\s*$", re.IGNORECASE), r""),
-    (re.compile(r"\s*\(Orange|Movistar\+|M\+|LaLiga\+\)\s*$", re.IGNORECASE), r""),
+    (re.compile(r"\s*\((?:Orange|Movistar\+|M\+|LaLiga\+)\)\s*$", re.IGNORECASE), r""),
 
     # Non-Movistar names but channels packed by Movistar; remove Movistar prefix.
     (re.compile(r"^\s*M\s+A3SERIES", re.IGNORECASE), "A3SERIES"),
@@ -48,6 +48,13 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\s*LA Sexta", re.IGNORECASE), "laSexta"),
     (re.compile(r"\bAVTAEL|AVATEL\b", re.IGNORECASE), r""),
     (re.compile(r"\bLALIGA\s+HYPERMOTION\s+TV\b", re.IGNORECASE), "LALIGATV HYPERMOTION"),
+    (re.compile(r"24H TVE", re.IGNORECASE), "24 Horas"),
+    (re.compile(r"Divinty", re.IGNORECASE), "Divinity"),
+
+    # Same Spanish channel, different IPTV spellings
+    (re.compile(r"^\s*Clan(?:\s*Tve|\s*TV)?\s*$", re.IGNORECASE), "Clan"),
+    (re.compile(r"^\s*Warner(?:\s+Bros\.?)?\s*TV\s*$", re.IGNORECASE), "Warner Bros. TV"),
+    (re.compile(r"^\s*Real\s+Madrid(?:\s*TV)?\s*$", re.IGNORECASE), "Real Madrid TV"),
 
     # El resto de M es Movistar Original.
     (re.compile(r"^\s*M\s+(.*)\s*$", re.IGNORECASE), r"Movistar \1"),
