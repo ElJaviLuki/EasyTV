@@ -11,7 +11,7 @@ Accepts IB Player export ({"urls":[...]}) or clean {"sources":[...]}.
 No ids in output — the app derives them from baseUrl+username.
 
 Pushes to:
-  /sdcard/Android/data/tv.facil.abuelo/files/playlists.json
+  /sdcard/Android/data/com.eljaviluki.easytv/files/playlists.json
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL_OUT = ROOT / "secrets" / "playlists.json"
-PACKAGE = "tv.facil.abuelo"
+PACKAGE = "com.eljaviluki.easytv"
 REMOTE_DIR = f"/sdcard/Android/data/{PACKAGE}/files"
 REMOTE_FILE = f"{REMOTE_DIR}/playlists.json"
 

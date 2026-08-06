@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TV Fácil</string>
+    <string name="app_name">EasyTV</string>
     <string name="choose_server">Elige una lista</string>
     <string name="missing_playlists">Falta playlists.json. Ejecuta scripts/seed_playlists.py con adb</string>
     <string name="choose_section">¿Qué quieres ver?</string>

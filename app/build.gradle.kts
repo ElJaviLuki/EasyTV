@@ -4,12 +4,12 @@ plugins {
 }
 
 android {
-    namespace = "tv.facil.abuelo"
+    namespace = "com.eljaviluki.easytv"
     compileSdk = 35
     buildToolsVersion = "36.0.0"
 
     defaultConfig {
-        applicationId = "tv.facil.abuelo"
+        applicationId = "com.eljaviluki.easytv"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

@@ -1,6 +1,8 @@
-# TV Fácil
+# EasyTV
 
 Android TV app with a simple remote-friendly UI for live TV, series, and movies (Xtream Codes).
+
+Licensed under the [MIT License](LICENSE).
 
 ## Setup
 
@@ -28,7 +30,7 @@ Accepts IB Player export (`urls`) or clean format (`playlists.example.json`).
 
 The script writes `secrets/playlists.json` (gitignored, outside `app/`) and pushes to:
 
-`/sdcard/Android/data/tv.facil.abuelo/files/playlists.json`
+`/sdcard/Android/data/com.eljaviluki.easytv/files/playlists.json`
 
 Then force-stops and relaunches the app. Load order on device: external files → internal files.
 
