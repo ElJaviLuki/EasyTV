@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.app.Activity
 import android.content.Context

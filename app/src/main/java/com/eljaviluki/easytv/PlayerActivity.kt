@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.content.Intent
 import android.os.Bundle
@@ -16,7 +16,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import coil.load
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import tv.facil.abuelo.databinding.ActivityPlayerBinding
+import com.eljaviluki.easytv.databinding.ActivityPlayerBinding
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.max

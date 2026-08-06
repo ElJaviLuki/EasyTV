@@ -1,8 +1,8 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.app.Application
 
-class TvFacilApp : Application() {
+class EasyTvApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AppSettings.init(this)

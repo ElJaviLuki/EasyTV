@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 object M3uParser {
     private val attrRegex = Regex("""([\w-]+)="([^"]*)"""")

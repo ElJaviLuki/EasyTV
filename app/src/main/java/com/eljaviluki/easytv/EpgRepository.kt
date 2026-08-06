@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,7 +32,7 @@ object EpgRepository {
                     "${source.baseUrl}/player_api.php?username=${source.username}&password=${source.password}&action=get_short_epg&stream_id=$streamId&limit=3"
                 val request = Request.Builder()
                     .url(url)
-                    .header("User-Agent", "TVFacil/1.3")
+                    .header("User-Agent", "EasyTV/1.0")
                     .get()
                     .build()
                 client.newCall(request).execute().use { response ->

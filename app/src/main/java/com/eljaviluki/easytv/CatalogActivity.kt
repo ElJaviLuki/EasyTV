@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.content.Intent
 import android.os.Bundle
@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import tv.facil.abuelo.databinding.ActivityChannelsBinding
+import com.eljaviluki.easytv.databinding.ActivityChannelsBinding
 
 class CatalogActivity : AppCompatActivity() {
     companion object {

@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.view.LayoutInflater
 import android.view.View
@@ -9,9 +9,9 @@ import coil.load
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import tv.facil.abuelo.databinding.ItemCategoryBinding
-import tv.facil.abuelo.databinding.ItemChannelBinding
-import tv.facil.abuelo.databinding.ItemServerBinding
+import com.eljaviluki.easytv.databinding.ItemCategoryBinding
+import com.eljaviluki.easytv.databinding.ItemChannelBinding
+import com.eljaviluki.easytv.databinding.ItemServerBinding
 
 class ServerAdapter(
     private val items: List<PlaylistSource>,

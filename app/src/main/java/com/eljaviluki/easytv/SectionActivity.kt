@@ -1,9 +1,9 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
-import tv.facil.abuelo.databinding.ActivityMainBinding
+import com.eljaviluki.easytv.databinding.ActivityMainBinding
 
 class SectionActivity : AppCompatActivity() {
     companion object {

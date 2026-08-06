@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
@@ -92,7 +92,7 @@ object PlaylistRepository {
     private fun httpGet(url: String): String {
         val request = Request.Builder()
             .url(url)
-            .header("User-Agent", "TVFacil/1.2")
+            .header("User-Agent", "EasyTV/1.0")
             .get()
             .build()
         client.newCall(request).execute().use { response ->

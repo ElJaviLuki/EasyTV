@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.content.Context
 import android.net.Uri
@@ -11,7 +11,7 @@ import java.security.MessageDigest
  * Playlists loaded at runtime (not hardcoded, not packaged in the APK).
  *
  * Priority:
- * 1. App external files: Android/data/tv.facil.abuelo/files/playlists.json (adb seed)
+ * 1. App external files: Android/data/com.eljaviluki.easytv/files/playlists.json (adb seed)
  * 2. App internal filesDir/playlists.json
  *
  * Local working copy for the seeder: secrets/playlists.json (gitignored, outside app/).

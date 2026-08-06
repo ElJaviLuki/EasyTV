@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.content.Intent
 import android.os.Bundle
@@ -8,7 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.launch
-import tv.facil.abuelo.databinding.ActivityChannelsBinding
+import com.eljaviluki.easytv.databinding.ActivityChannelsBinding
 
 class EpisodesActivity : AppCompatActivity() {
     companion object {

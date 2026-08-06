@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 enum class ContentKind(val apiKey: String, val title: String, val loadingLabel: String) {
     LIVE("live", "Canales", "canales"),

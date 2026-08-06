@@ -1,13 +1,13 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.content.Context
 import android.content.SharedPreferences
 
 /**
- * App settings. Defaults are grandpa-friendly.
+ * App settings. Defaults are simple and remote-friendly.
  */
 object AppSettings {
-    private const val PREFS = "tv_facil_settings"
+    private const val PREFS = "easytv_settings"
     private const val KEY_ZAP_WRAP_AROUND = "zap_wrap_around"
     private const val KEY_LAST_SOURCE_ID = "last_source_id"
     private const val KEY_LAST_SCREEN = "last_screen"

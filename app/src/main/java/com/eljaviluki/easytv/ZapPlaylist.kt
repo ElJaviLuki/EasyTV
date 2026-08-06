@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 /**
  * In-memory zap list for live TV (CH+/CH-).

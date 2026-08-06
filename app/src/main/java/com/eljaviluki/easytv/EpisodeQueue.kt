@@ -1,4 +1,4 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 /**
  * In-memory episode queue for series playback (next-episode prompt).

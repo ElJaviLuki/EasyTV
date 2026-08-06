@@ -1,9 +1,9 @@
-package tv.facil.abuelo
+package com.eljaviluki.easytv
 
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.appcompat.app.AppCompatActivity
-import tv.facil.abuelo.databinding.ActivitySettingsBinding
+import com.eljaviluki.easytv.databinding.ActivitySettingsBinding
 
 class SettingsActivity : AppCompatActivity() {
     companion object {
