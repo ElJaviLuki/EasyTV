@@ -21,8 +21,7 @@ DEFAULT_OUT = ROOT / "secrets" / "curated_distinct_names.json"
 
 # (pattern, replacement) — applied in order; \\1 group refs allowed.
 RULES: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"^\s*ES\s+4k-\s*(.*)\s*$", re.IGNORECASE), r"\1"),
-    (re.compile(r"^\s*ES-\s*(.*)\s*$", re.IGNORECASE), r"\1"),
+    (re.compile(r"^\s*ES(?:\s+4k)?-\s*(.*)\s*$", re.IGNORECASE), r"\1"),
     (re.compile(r"^\s*ES\s+\([A-Z]+\)\s*", re.IGNORECASE), r""),
     (re.compile(r"^\s*ES\s+", re.IGNORECASE), r""),
     (re.compile(r"\s+ES\s*$", re.IGNORECASE), r""),
