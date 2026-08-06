@@ -44,6 +44,7 @@ RULES: list[tuple[re.Pattern[str], str]] = [
 
     # Typo corrections
     (re.compile(r"^\s*Canal\s+Sur\s+A\s*$", re.IGNORECASE), "Canal Sur"),
+    (re.compile(r"^\s*CanalSur\s*$", re.IGNORECASE), "Canal Sur"),
     (re.compile(r"^\s*CANALE?\s+EXTREMADURA\s*$", re.IGNORECASE), "Canal Extremadura"),
     (re.compile(r"^\s*LA Sexta", re.IGNORECASE), "laSexta"),
     (re.compile(r"\bAVTAEL|AVATEL\b", re.IGNORECASE), r""),
@@ -55,6 +56,14 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\s*Clan(?:\s*Tve|\s*TV)?\s*$", re.IGNORECASE), "Clan"),
     (re.compile(r"^\s*Warner(?:\s+Bros\.?)?\s*TV\s*$", re.IGNORECASE), "Warner Bros. TV"),
     (re.compile(r"^\s*Real\s+Madrid(?:\s*TV)?\s*$", re.IGNORECASE), "Real Madrid TV"),
+    (re.compile(r"^\s*Disney\s*(?:Junior|Jr\.?)\s*$", re.IGNORECASE), "Disney Junior"),
+    (re.compile(r"^\s*Disney\s+(?:Channel|Chanel)\s*$", re.IGNORECASE), "Disney Channel"),
+    (re.compile(r"^\s*Nick\s*(?:Junior|Jr\.?)\s*$", re.IGNORECASE), "Nick Junior"),
+    # After Nick Junior: bare Nick ≡ Nickelodeon (do not use a loose Nick\b here).
+    (re.compile(r"^\s*(?:Nickelodeon|Nick)\s*$", re.IGNORECASE), "Nickelodeon"),
+    (re.compile(r"^\s*Iberalia(?:\s*TV)?\s*$", re.IGNORECASE), "Iberalia TV"),
+    (re.compile(r"^\s*Iberalia(?:\s*100\s*%?)?\s*Caza\s*$", re.IGNORECASE), "Iberalia Caza"),
+    (re.compile(r"^\s*Iberalia(?:\s*100\s*%?)?\s*Pesca\s*$", re.IGNORECASE), "Iberalia Pesca"),
 
     # El resto de M es Movistar Original.
     (re.compile(r"^\s*M\s+(.*)\s*$", re.IGNORECASE), r"Movistar \1"),
