@@ -67,7 +67,6 @@ RULES: list[tuple[re.Pattern[str], str]] = [
 
     (re.compile(r"^\s*Nat\s*Geo\s*$", re.IGNORECASE), "NAT GEO"),
     (re.compile(r"^\s*Nat\s*Geo\s+Wild\s*$", re.IGNORECASE), "Nat Geo Wild"),
-    (re.compile(r"^\s*BE\s*MAD\s*$", re.IGNORECASE), "BE MAD"),
     (re.compile(r"^\s*ETB\s*3\s*$", re.IGNORECASE), "ETB 3"),
     (re.compile(r"^\s*ETB\s*4\s*$", re.IGNORECASE), "ETB 4"),
     (re.compile(r"^\s*EN\s*FAMILIA\s*$", re.IGNORECASE), "En Familia"),
@@ -78,6 +77,17 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\s*Super\s*3\s*/\s*33\s*$", re.IGNORECASE), "Super 3/33"),
     # "Run Time Foo" / "RunTime Foo" → "Runtime Foo"
     (re.compile(r"^\s*Run\s*Time\b", re.IGNORECASE), "Runtime"),
+
+    (re.compile(r"^\s*BE\s*MAD(?:\s*TV)?\s*$", re.IGNORECASE), "BE MAD"),
+    (re.compile(r"^\s*Runtime\s+Acci[oó]n\s*$", re.IGNORECASE), "Runtime Acción"),
+    (re.compile(r"^\s*Runtime\s+Action\s*$", re.IGNORECASE), "Runtime Acción"),
+    (re.compile(r"^\s*Runtime\s+Cl[aá]sicos?\s*$", re.IGNORECASE), "Runtime Clásicos"),
+    (re.compile(
+        r"^\s*Runtime\s+Thriller\s*(?:/\s*Terror|\+\s*Terror|y\s+Terror)\s*$",
+        re.IGNORECASE,
+    ), "Runtime Thriller y Terror"),
+    (re.compile(r"^\s*Am[eé]rica\s*TV\s*$", re.IGNORECASE), "América TV"),
+    (re.compile(r"^\s*SURF\s+CHAN(?:NEL|EL)\s*$", re.IGNORECASE), "SURF CHANNEL"),
 
     # El resto de M es Movistar Original.
     (re.compile(r"^\s*M\s+(.*)\s*$", re.IGNORECASE), r"Movistar \1"),
