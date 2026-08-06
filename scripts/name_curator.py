@@ -33,13 +33,7 @@ RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bAVTAEL|AVATEL\b", re.IGNORECASE), r""),
 
     # Quality tokens (leave gaps → collapsed at the end)
-    (re.compile(r"\bUHD\/4K\b", re.IGNORECASE), ""),
-    (re.compile(r"\bSD\b", re.IGNORECASE), ""),
-    (re.compile(r"\bHD\b", re.IGNORECASE), ""),
-    (re.compile(r"\bFHD\b", re.IGNORECASE), ""),
-    (re.compile(r"\bUHD\b", re.IGNORECASE), ""),
-    (re.compile(r"\b4K\b", re.IGNORECASE), ""),
-    (re.compile(r"\bHDR\b", re.IGNORECASE), ""),
+    (re.compile(r"\b((UHD|4K|HDR|SD|HD|FHD)\/)*(UHD|4K|HDR|SD|HD|FHD)\b", re.IGNORECASE), r""),
 
     # Provider / pack suffixes AFTER quality+(ES), so "(ES) (Orange)" still works
     (re.compile(r"\s*\(backup\s*(?:[0-9]+)?\s*\)\s*$", re.IGNORECASE), r""),
