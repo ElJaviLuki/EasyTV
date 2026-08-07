@@ -28,27 +28,33 @@ object ModeNav {
         Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
 
     fun handleColorKey(activity: AppCompatActivity, keyCode: Int, sourceId: String): Boolean {
-        if (sourceId.isBlank()) return false
+        val sid = sourceId.ifBlank { AppSettings.preferredSourceId() }
+        // TV (red) works from bundled channels; series/movies need a playlist.
+        if (sid.isBlank() && keyCode != KeyEvent.KEYCODE_PROG_RED) {
+            return false
+        }
         if (activity is PlayerActivity) {
             activity.persistPlaybackForNav()
         }
         return when (keyCode) {
             KeyEvent.KEYCODE_PROG_RED -> {
                 if (activity is PlayerActivity && activity.isLiveZap) return true
-                openTv(activity, sourceId)
+                openTv(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_GREEN -> {
-                openSeries(activity, sourceId)
+                if (sid.isBlank()) return true
+                openSeries(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_YELLOW -> {
-                openMovies(activity, sourceId)
+                if (sid.isBlank()) return true
+                openMovies(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_BLUE -> {
                 if (activity is SettingsActivity) return true
-                openSettings(activity, sourceId, currentScreenFor(activity))
+                openSettings(activity, sid, currentScreenFor(activity))
                 true
             }
             else -> false
@@ -127,8 +133,10 @@ object ModeNav {
         kind: ContentKind,
         fromTv: Boolean = false
     ) {
+        val sid = sourceId.ifBlank { AppSettings.preferredSourceId() }
+        if (kind != ContentKind.LIVE && sid.isBlank()) return
         if (activity is CatalogActivity && activity.currentKind == kind) {
-            AppSettings.lastSourceId = sourceId
+            if (sid.isNotBlank()) AppSettings.lastSourceId = sid
             AppSettings.lastScreen = when (kind) {
                 ContentKind.LIVE -> AppScreen.CHANNELS
                 ContentKind.SERIES -> AppScreen.SERIES
@@ -136,7 +144,7 @@ object ModeNav {
             }
             return
         }
-        AppSettings.lastSourceId = sourceId
+        if (sid.isNotBlank()) AppSettings.lastSourceId = sid
         AppSettings.lastScreen = when (kind) {
             ContentKind.LIVE -> AppScreen.CHANNELS
             ContentKind.SERIES -> {
@@ -150,7 +158,7 @@ object ModeNav {
         }
         activity.startActivity(
             Intent(activity, CatalogActivity::class.java)
-                .putExtra(CatalogActivity.EXTRA_SOURCE_ID, sourceId)
+                .putExtra(CatalogActivity.EXTRA_SOURCE_ID, sid)
                 .putExtra(CatalogActivity.EXTRA_KIND, kind.name)
                 .putExtra(EXTRA_FROM_TV, fromTv || kind == ContentKind.LIVE)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -163,15 +171,16 @@ object ModeNav {
 
     fun openTv(activity: AppCompatActivity, sourceId: String) {
         if (activity is PlayerActivity && activity.isLiveZap) return
-        AppSettings.lastSourceId = sourceId
+        val sid = sourceId.ifBlank { AppSettings.preferredSourceId() }
+        if (sid.isNotBlank()) AppSettings.lastSourceId = sid
         AppSettings.lastScreen = AppScreen.TV
         activity.lifecycleScope.launch {
-            val channel = resolveLiveChannel(activity, sourceId) ?: run {
-                openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
+            val channel = resolveLiveChannel(activity, sid) ?: run {
+                openCatalog(activity, sid, ContentKind.LIVE, fromTv = true)
                 return@launch
             }
             EpisodeQueue.clear()
-            startLivePlayer(activity, sourceId, channel)
+            startLivePlayer(activity, sid, channel)
         }
     }
 
@@ -260,13 +269,26 @@ object ModeNav {
 
     /** Resume last screen from cold start. Returns true if navigation started. */
     fun tryResume(activity: AppCompatActivity): Boolean {
-        val sourceId = AppSettings.lastSourceId
+        val sourceId = AppSettings.preferredSourceId()
+        when (AppSettings.lastScreen) {
+            AppScreen.TV -> {
+                openTv(activity, sourceId)
+                return true
+            }
+            AppScreen.CHANNELS -> {
+                openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
+                return true
+            }
+            AppScreen.SETTINGS -> {
+                openSettings(activity, sourceId, AppSettings.settingsReturnScreen)
+                return true
+            }
+            else -> Unit
+        }
         if (sourceId.isBlank() || PlaylistStore.byId(sourceId) == null) return false
         when (AppSettings.lastScreen) {
-            AppScreen.TV -> openTv(activity, sourceId)
             AppScreen.SERIES -> openCatalog(activity, sourceId, ContentKind.SERIES)
             AppScreen.MOVIES -> openCatalog(activity, sourceId, ContentKind.MOVIES)
-            AppScreen.CHANNELS -> openCatalog(activity, sourceId, ContentKind.LIVE, fromTv = true)
             AppScreen.STREAMING_SERIES, AppScreen.STREAMING_MOVIE -> {
                 val vod = if (AppSettings.lastScreen == AppScreen.STREAMING_SERIES) {
                     AppSettings.lastSeriesVod()
@@ -284,11 +306,7 @@ object ModeNav {
                     }
                 )
             }
-            AppScreen.SETTINGS -> openSettings(
-                activity,
-                sourceId,
-                AppSettings.settingsReturnScreen
-            )
+            else -> return false
         }
         return true
     }
@@ -307,21 +325,24 @@ object ModeNav {
      * Sets zap playlist state and opens [PlayerActivity].
      */
     fun playLive(context: Context, sourceId: String, channel: CatalogItem) {
-        AppSettings.lastSourceId = sourceId
+        val play = ChannelsCleanStore.preferred(channel)
+        val sid = sourceId.ifBlank { AppSettings.preferredSourceId() }
+        if (sid.isNotBlank()) AppSettings.lastSourceId = sid
         AppSettings.lastScreen = AppScreen.TV
-        AppSettings.saveLastLive(channel)
+        AppSettings.saveLastLive(play)
         EpisodeQueue.clear()
         val flags = playerIntentFlags() or
             if (context !is Activity) Intent.FLAG_ACTIVITY_NEW_TASK else 0
         context.startActivity(
             Intent(context, PlayerActivity::class.java)
-                .putExtra(PlayerActivity.EXTRA_URL, channel.url)
-                .putExtra(PlayerActivity.EXTRA_NAME, channel.name)
-                .putExtra(PlayerActivity.EXTRA_GROUP, channel.group)
-                .putExtra(PlayerActivity.EXTRA_NUMBER, channel.number)
-                .putExtra(PlayerActivity.EXTRA_LOGO, channel.logo)
-                .putExtra(PlayerActivity.EXTRA_STREAM_ID, channel.streamId ?: -1)
-                .putExtra(PlayerActivity.EXTRA_SOURCE_ID, sourceId)
+                .putExtra(PlayerActivity.EXTRA_URL, play.url)
+                .putExtra(PlayerActivity.EXTRA_NAME, play.name)
+                .putExtra(PlayerActivity.EXTRA_GROUP, play.group)
+                .putExtra(PlayerActivity.EXTRA_NUMBER, play.number)
+                .putExtra(PlayerActivity.EXTRA_LOGO, play.logo)
+                .putExtra(PlayerActivity.EXTRA_STREAM_ID, play.streamId ?: -1)
+                .putExtra(PlayerActivity.EXTRA_CHANNEL_ID, play.channelId)
+                .putExtra(PlayerActivity.EXTRA_SOURCE_ID, sid)
                 .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, true)
                 .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, false)
                 .addFlags(flags)
@@ -382,23 +403,33 @@ object ModeNav {
 
     suspend fun resolveLiveChannel(context: Context, sourceId: String): CatalogItem? =
         withContext(Dispatchers.IO) {
-            val source = PlaylistStore.byId(sourceId) ?: return@withContext null
-            var live = PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
+            var live = PlaylistRepository.memoryCached(sourceId, ContentKind.LIVE)
             if (live.isEmpty()) {
-                live = PlaylistRepository.diskCached(context, source.id, ContentKind.LIVE)
+                live = PlaylistRepository.diskCached(context, sourceId, ContentKind.LIVE)
             }
             if (live.isEmpty()) {
-                runCatching {
-                    live = PlaylistRepository.loadCatalog(context, source, ContentKind.LIVE)
+                val source = PlaylistStore.byId(sourceId)
+                    ?: PlaylistStore.sources().firstOrNull()
+                if (source != null) {
+                    runCatching {
+                        live = PlaylistRepository.loadCatalog(context, source, ContentKind.LIVE)
+                    }
+                } else {
+                    live = ChannelsCleanStore.ensureLoaded(context)
+                        .map { ChannelsCleanStore.preferred(it) }
                 }
             }
-            val playable = live.filter { it.url.isNotBlank() }
+            val playable = live.filter { it.url.isNotBlank() || it.lives.isNotEmpty() }
+                .map { ChannelsCleanStore.preferred(it) }
             if (playable.isEmpty()) return@withContext null
             ZapPlaylist.set(playable)
             val last = AppSettings.lastLiveItem()
             if (last != null) {
                 playable.find {
-                    it.url == last.url || (last.streamId != null && it.streamId == last.streamId)
+                    (last.channelId.isNotBlank() && it.channelId == last.channelId) ||
+                        it.url == last.url ||
+                        (last.streamId != null && it.streamId == last.streamId) ||
+                        it.lives.any { endpoint -> endpoint.url == last.url }
                 } ?: playable.first()
             } else {
                 playable.first()

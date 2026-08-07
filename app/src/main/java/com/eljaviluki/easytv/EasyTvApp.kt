@@ -6,6 +6,7 @@ class EasyTvApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AppSettings.init(this)
+        AppForeground.install(this)
         PlaylistStore.load(this)
     }
 }

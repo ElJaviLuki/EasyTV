@@ -8,24 +8,59 @@
     <path
         android:fillColor="#12151A"
         android:pathData="M0,0h320v180h-320z" />
-    <!-- TV bezel (centered) -->
+
+    <!-- Left antenna -->
     <path
         android:fillColor="#E8A54B"
-        android:pathData="M92,28h136c10,0 18,8 18,18v70c0,10 -8,18 -18,18h-136c-10,0 -18,-8 -18,-18v-70c0,-10 8,-18 18,-18z" />
-    <!-- Screen -->
+        android:pathData="M118,6 L138,36 L128,38 Z" />
+    <!-- Right antenna -->
+    <path
+        android:fillColor="#E8A54B"
+        android:pathData="M202,6 L182,36 L192,38 Z" />
+    <!-- Antenna hinge -->
+    <path
+        android:fillColor="#C4893A"
+        android:pathData="M148,34h24v8h-24z" />
+
+    <!-- Outer TV body -->
+    <path
+        android:fillColor="#E8A54B"
+        android:pathData="M70,42h180c12,0 20,8 20,20v78c0,12 -8,20 -20,20h-180c-12,0 -20,-8 -20,-20v-78c0,-12 8,-20 20,-20z" />
+
+    <!-- Inner bezel -->
+    <path
+        android:fillColor="#8B6430"
+        android:pathData="M84,54h130c6,0 10,4 10,10v54c0,6 -4,10 -10,10h-130c-6,0 -10,-4 -10,-10v-54c0,-6 4,-10 10,-10z" />
+
+    <!-- Bright screen -->
+    <path
+        android:fillColor="#F2EDE4"
+        android:pathData="M92,62h114c4,0 6,2 6,6v42c0,4 -2,6 -6,6h-114c-4,0 -6,-2 -6,-6v-42c0,-4 2,-6 6,-6z" />
+
+    <!-- Sky -->
+    <path
+        android:fillColor="#6BA3C9"
+        android:pathData="M92,62h120v28h-120z" />
+    <!-- Hills -->
+    <path
+        android:fillColor="#5A8F4A"
+        android:pathData="M92,86 L120,74 L148,90 L176,78 L212,90 L212,116 L92,116 Z" />
+    <!-- Big play triangle -->
+    <path
+        android:fillColor="#E8A54B"
+        android:pathData="M128,76 L128,108 L156,92 Z" />
+
+    <!-- Side buttons -->
     <path
         android:fillColor="#12151A"
-        android:pathData="M108,44h104c4.4,0 8,3.6 8,8v50c0,4.4 -3.6,8 -8,8h-104c-4.4,0 -8,-3.6 -8,-8v-50c0,-4.4 3.6,-8 8,-8z" />
-    <!-- Soft screen lines -->
+        android:pathData="M228,68h10v10h-10zM228,86h10v10h-10zM228,104h10v10h-10z" />
+
+    <!-- Left foot -->
     <path
-        android:fillColor="#2A3340"
-        android:pathData="M122,60h76v7h-76zM122,78h52v7h-52z" />
-    <!-- Neck -->
+        android:fillColor="#C4893A"
+        android:pathData="M96,160h36v14h-36z" />
+    <!-- Right foot -->
     <path
-        android:fillColor="#E8A54B"
-        android:pathData="M152,134h16v10h-16z" />
-    <!-- Stand base -->
-    <path
-        android:fillColor="#E8A54B"
-        android:pathData="M128,144h64c4.4,0 8,3.6 8,8v4h-80v-4c0,-4.4 3.6,-8 8,-8z" />
+        android:fillColor="#C4893A"
+        android:pathData="M188,160h36v14h-36z" />
 </vector>

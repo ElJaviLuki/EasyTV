@@ -16,9 +16,12 @@
     <string name="next_episode_countdown">Siguiente episodio (%1$d)</string>
     <string name="back_to_tv">Volver a TV</string>
     <string name="loading_tv">Cargando TV…</string>
+    <string name="live_fallback">Probando otra señal…</string>
     <string name="settings_title">Configuración</string>
     <string name="settings_zap_wrap_on">CH+/CH−: circular al llegar al final · Activado</string>
     <string name="settings_zap_wrap_off">CH+/CH−: circular al llegar al final · Desactivado</string>
     <string name="resuming">Reanudando…</string>
     <string name="appfunctions_display_description">Controla EasyTV por voz: sintoniza canales, busca partidos en la guía y abre series o películas.</string>
+    <string name="home_guide_accessibility_label">EasyTV: Home / TV</string>
+    <string name="home_guide_accessibility_description">Al pulsar Home o TV/Guía en el mando, abre EasyTV en lugar del menú de Google TV. Activa este servicio una sola vez.</string>
 </resources>

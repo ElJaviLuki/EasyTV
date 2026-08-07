@@ -20,6 +20,8 @@ object AppSettings {
     private const val KEY_LAST_LIVE_NUMBER = "last_live_number"
     private const val KEY_LAST_LIVE_LOGO = "last_live_logo"
     private const val KEY_LAST_LIVE_STREAM_ID = "last_live_stream_id"
+    private const val KEY_LAST_LIVE_CHANNEL_ID = "last_live_channel_id"
+    private const val PREFIX_LIVE_URL = "live_ok_url_"
 
     private const val PREFIX_SERIES_VOD = "series_vod_"
     private const val PREFIX_MOVIE_VOD = "movie_vod_"
@@ -114,20 +116,48 @@ object AppSettings {
             .putInt(KEY_LAST_LIVE_NUMBER, item.number)
             .putString(KEY_LAST_LIVE_LOGO, item.logo.orEmpty())
             .putInt(KEY_LAST_LIVE_STREAM_ID, item.streamId ?: -1)
+            .putString(KEY_LAST_LIVE_CHANNEL_ID, item.channelId)
             .apply()
     }
 
     fun lastLiveItem(): CatalogItem? {
         val url = requirePrefs().getString(KEY_LAST_LIVE_URL, null)?.takeIf { it.isNotBlank() }
             ?: return null
+        val channelId = requirePrefs().getString(KEY_LAST_LIVE_CHANNEL_ID, "").orEmpty()
+        val base = ChannelsCleanStore.byChannelId(channelId)
+            ?: ChannelsCleanStore.channels().find { c ->
+                c.url == url || c.lives.any { it.url == url }
+            }
+        if (base != null) {
+            return ChannelsCleanStore.preferred(base)
+        }
         return CatalogItem(
             number = requirePrefs().getInt(KEY_LAST_LIVE_NUMBER, 0),
             name = requirePrefs().getString(KEY_LAST_LIVE_NAME, "").orEmpty(),
             group = requirePrefs().getString(KEY_LAST_LIVE_GROUP, "").orEmpty(),
             logo = requirePrefs().getString(KEY_LAST_LIVE_LOGO, null)?.ifBlank { null },
             url = url,
-            streamId = requirePrefs().getInt(KEY_LAST_LIVE_STREAM_ID, -1).takeIf { it > 0 }
+            streamId = requirePrefs().getInt(KEY_LAST_LIVE_STREAM_ID, -1).takeIf { it > 0 },
+            channelId = channelId
         )
+    }
+
+    /** Last live URL that actually played for this channel (fallback cache). */
+    fun successfulLiveUrl(channelId: String): String? {
+        if (channelId.isBlank()) return null
+        return requirePrefs().getString(PREFIX_LIVE_URL + channelId, null)?.takeIf { it.isNotBlank() }
+    }
+
+    fun saveSuccessfulLiveUrl(channelId: String, url: String) {
+        if (channelId.isBlank() || url.isBlank()) return
+        requirePrefs().edit().putString(PREFIX_LIVE_URL + channelId, url).apply()
+    }
+
+    /** First known playlist, or last selected if still valid. */
+    fun preferredSourceId(): String {
+        val last = lastSourceId
+        if (last.isNotBlank() && PlaylistStore.byId(last) != null) return last
+        return PlaylistStore.sources().firstOrNull()?.id.orEmpty()
     }
 
     /** Saves VOD resume slot only. Does not change hub/screen — callers set those intentionally. */

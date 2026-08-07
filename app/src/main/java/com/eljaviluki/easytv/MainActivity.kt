@@ -7,18 +7,25 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.eljaviluki.easytv.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        /** From Home/Guide accessibility override: jump straight to live TV. */
+        const val EXTRA_LAUNCH_TV = "launch_tv"
+    }
+
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        if (consumeLaunchTv(intent)) return
         bindUi(resume = savedInstanceState == null)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (consumeLaunchTv(intent)) return
         // Home / boot may re-deliver MAIN while we are already alive.
         if (intent.getBooleanExtra(BootLaunch.EXTRA_FROM_BOOT, false) ||
             intent.hasCategory(Intent.CATEGORY_HOME) ||
@@ -27,6 +34,14 @@ class MainActivity : AppCompatActivity() {
             PlaylistStore.load(this)
             bindUi(resume = true)
         }
+    }
+
+    /** @return true if this intent requested live TV. */
+    private fun consumeLaunchTv(intent: Intent?): Boolean {
+        if (intent?.getBooleanExtra(EXTRA_LAUNCH_TV, false) != true) return false
+        intent.removeExtra(EXTRA_LAUNCH_TV)
+        ModeNav.openTv(this, AppSettings.preferredSourceId())
+        return true
     }
 
     override fun onResume() {

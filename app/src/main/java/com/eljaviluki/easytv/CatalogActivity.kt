@@ -20,7 +20,8 @@ class CatalogActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityChannelsBinding
-    private lateinit var source: PlaylistSource
+    private var source: PlaylistSource? = null
+    private var sourceId: String = ""
     lateinit var currentKind: ContentKind
         private set
     private var fromTv: Boolean = false
@@ -79,58 +80,68 @@ class CatalogActivity : AppCompatActivity() {
     }
 
     private fun bindFromIntent(intent: Intent): Boolean {
-        source = PlaylistStore.byId(intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()) ?: return false
         currentKind = ContentKind.fromExtra(intent.getStringExtra(EXTRA_KIND))
+        sourceId = intent.getStringExtra(EXTRA_SOURCE_ID).orEmpty()
+            .ifBlank { AppSettings.preferredSourceId() }
+        source = PlaylistStore.byId(sourceId)
+        if (currentKind != ContentKind.LIVE && source == null) return false
         fromTv = intent.getBooleanExtra(ModeNav.EXTRA_FROM_TV, currentKind == ContentKind.LIVE)
 
-        AppSettings.lastSourceId = source.id
+        if (sourceId.isNotBlank()) AppSettings.lastSourceId = sourceId
         AppSettings.lastScreen = when (currentKind) {
             ContentKind.LIVE -> AppScreen.CHANNELS
             ContentKind.SERIES -> AppScreen.SERIES
             ContentKind.MOVIES -> AppScreen.MOVIES
         }
 
-        binding.title.text = "${source.name} · ${currentKind.title}"
+        binding.title.text = when (currentKind) {
+            ContentKind.LIVE -> currentKind.title
+            else -> "${source?.name.orEmpty()} · ${currentKind.title}"
+        }
         return true
     }
 
     private fun onItemClick(item: CatalogItem) {
         when {
             currentKind == ContentKind.SERIES && item.seriesId != null -> {
+                val sid = source?.id ?: return
                 startActivity(
                     Intent(this, EpisodesActivity::class.java)
-                        .putExtra(EpisodesActivity.EXTRA_SOURCE_ID, source.id)
+                        .putExtra(EpisodesActivity.EXTRA_SOURCE_ID, sid)
                         .putExtra(EpisodesActivity.EXTRA_SERIES_ID, item.seriesId)
                         .putExtra(EpisodesActivity.EXTRA_SERIES_NAME, item.name)
                 )
             }
-            item.url.isNotBlank() -> {
+            item.url.isNotBlank() || item.lives.isNotEmpty() -> {
                 if (currentKind == ContentKind.LIVE) {
+                    val play = ChannelsCleanStore.preferred(item)
                     EpisodeQueue.clear()
                     ZapPlaylist.set(
-                        PlaylistRepository.memoryCached(source.id, ContentKind.LIVE)
+                        PlaylistRepository.memoryCached(sourceId, ContentKind.LIVE)
                             .ifEmpty { allItems }
                             .ifEmpty { visibleItems() }
                     )
-                    AppSettings.saveLastLive(item)
+                    AppSettings.saveLastLive(play)
                     AppSettings.lastScreen = AppScreen.TV
                     startActivity(
                         Intent(this, PlayerActivity::class.java)
-                            .putExtra(PlayerActivity.EXTRA_URL, item.url)
-                            .putExtra(PlayerActivity.EXTRA_NAME, item.name)
-                            .putExtra(PlayerActivity.EXTRA_GROUP, item.group)
-                            .putExtra(PlayerActivity.EXTRA_NUMBER, item.number)
-                            .putExtra(PlayerActivity.EXTRA_LOGO, item.logo)
-                            .putExtra(PlayerActivity.EXTRA_STREAM_ID, item.streamId ?: -1)
-                            .putExtra(PlayerActivity.EXTRA_SOURCE_ID, source.id)
+                            .putExtra(PlayerActivity.EXTRA_URL, play.url)
+                            .putExtra(PlayerActivity.EXTRA_NAME, play.name)
+                            .putExtra(PlayerActivity.EXTRA_GROUP, play.group)
+                            .putExtra(PlayerActivity.EXTRA_NUMBER, play.number)
+                            .putExtra(PlayerActivity.EXTRA_LOGO, play.logo)
+                            .putExtra(PlayerActivity.EXTRA_STREAM_ID, play.streamId ?: -1)
+                            .putExtra(PlayerActivity.EXTRA_CHANNEL_ID, play.channelId)
+                            .putExtra(PlayerActivity.EXTRA_SOURCE_ID, sourceId)
                             .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, true)
                             .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, false)
                     )
                     finish()
                 } else {
+                    val sid = source?.id ?: return
                     ModeNav.openVod(
                         this,
-                        source.id,
+                        sid,
                         VodPlayback(
                             url = item.url,
                             name = item.name,
@@ -149,7 +160,7 @@ class CatalogActivity : AppCompatActivity() {
 
     private fun navigateBack() {
         if (fromTv && currentKind == ContentKind.LIVE) {
-            ModeNav.openTv(this, source.id)
+            ModeNav.openTv(this, sourceId)
         } else {
             finish()
         }
@@ -170,9 +181,38 @@ class CatalogActivity : AppCompatActivity() {
     private fun showCacheThenRefresh() {
         loadJob?.cancel()
         loadJob = lifecycleScope.launch {
+            if (currentKind == ContentKind.LIVE) {
+                binding.loading.visibility = View.VISIBLE
+                binding.status.text = getString(R.string.loading_kind, currentKind.loadingLabel)
+                val items = withContext(Dispatchers.IO) {
+                    PlaylistRepository.memoryCached(sourceId, ContentKind.LIVE)
+                        .ifEmpty {
+                            PlaylistRepository.diskCached(
+                                this@CatalogActivity, sourceId, ContentKind.LIVE
+                            )
+                        }
+                        .ifEmpty {
+                            val src = source ?: PlaylistSource(
+                                id = "bundled",
+                                name = "TV",
+                                baseUrl = "http://local",
+                                username = "",
+                                password = "",
+                                hint = "bundled"
+                            )
+                            PlaylistRepository.loadCatalog(
+                                this@CatalogActivity, src, ContentKind.LIVE
+                            )
+                        }
+                }
+                applyItems(items, "${items.size} ${currentKind.loadingLabel}")
+                return@launch
+            }
+
+            val src = source ?: return@launch
             val cached = withContext(Dispatchers.IO) {
-                PlaylistRepository.memoryCached(source.id, currentKind)
-                    .ifEmpty { PlaylistRepository.diskCached(this@CatalogActivity, source.id, currentKind) }
+                PlaylistRepository.memoryCached(src.id, currentKind)
+                    .ifEmpty { PlaylistRepository.diskCached(this@CatalogActivity, src.id, currentKind) }
             }
             if (cached.isNotEmpty()) {
                 applyItems(cached, "${cached.size} ${currentKind.loadingLabel} (caché) · actualizando…")
@@ -185,9 +225,9 @@ class CatalogActivity : AppCompatActivity() {
 
             try {
                 val fresh = PlaylistRepository.loadCatalog(
-                    this@CatalogActivity, source, currentKind, force = cached.isNotEmpty()
+                    this@CatalogActivity, src, currentKind, force = cached.isNotEmpty()
                 )
-                applyItems(fresh, "${fresh.size} ${currentKind.loadingLabel} · ${source.hint}")
+                applyItems(fresh, "${fresh.size} ${currentKind.loadingLabel} · ${src.hint}")
             } catch (e: Exception) {
                 binding.loading.visibility = View.GONE
                 if (cached.isEmpty()) {
@@ -219,7 +259,7 @@ class CatalogActivity : AppCompatActivity() {
             navigateBack()
             return true
         }
-        if (ModeNav.handleColorKey(this, keyCode, source.id)) return true
+        if (ModeNav.handleColorKey(this, keyCode, sourceId)) return true
         return super.onKeyDown(keyCode, event)
     }
 }
