@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <uses-feature
         android:name="android.software.leanback"
@@ -26,6 +27,18 @@
         <property
             android:name="android.app.appfunctions.app_metadata"
             android:resource="@xml/app_metadata" />
+
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="false">
+            <intent-filter android:priority="999">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".appfunctions.EasyTvAppFunctionService"
@@ -75,12 +88,20 @@
             android:name=".MainActivity"
             android:banner="@drawable/banner"
             android:exported="true"
+            android:launchMode="singleTask"
             android:logo="@drawable/ic_launcher"
             android:screenOrientation="landscape">
+            <!-- App drawer / Leanback row -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Compete as system Home / TV launcher (set as default in Settings) -->
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
     </application>
