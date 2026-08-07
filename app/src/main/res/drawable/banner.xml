@@ -4,16 +4,28 @@
     android:height="180dp"
     android:viewportWidth="320"
     android:viewportHeight="180">
+    <!-- Background -->
     <path
         android:fillColor="#12151A"
         android:pathData="M0,0h320v180h-320z" />
+    <!-- TV bezel (centered) -->
     <path
         android:fillColor="#E8A54B"
-        android:pathData="M40,50h100c6,0 10,4 10,10v60c0,6 -4,10 -10,10h-100c-6,0 -10,-4 -10,-10v-60c0,-6 4,-10 10,-10z" />
+        android:pathData="M92,28h136c10,0 18,8 18,18v70c0,10 -8,18 -18,18h-136c-10,0 -18,-8 -18,-18v-70c0,-10 8,-18 18,-18z" />
+    <!-- Screen -->
     <path
         android:fillColor="#12151A"
-        android:pathData="M58,78h64v8h-64zM58,96h40v8h-40z" />
+        android:pathData="M108,44h104c4.4,0 8,3.6 8,8v50c0,4.4 -3.6,8 -8,8h-104c-4.4,0 -8,-3.6 -8,-8v-50c0,-4.4 3.6,-8 8,-8z" />
+    <!-- Soft screen lines -->
     <path
-        android:fillColor="#F2EDE4"
-        android:pathData="M170,70h120v12h-120zM170,98h90v10h-90z" />
+        android:fillColor="#2A3340"
+        android:pathData="M122,60h76v7h-76zM122,78h52v7h-52z" />
+    <!-- Neck -->
+    <path
+        android:fillColor="#E8A54B"
+        android:pathData="M152,134h16v10h-16z" />
+    <!-- Stand base -->
+    <path
+        android:fillColor="#E8A54B"
+        android:pathData="M128,144h64c4.4,0 8,3.6 8,8v4h-80v-4c0,-4.4 3.6,-8 8,-8z" />
 </vector>
