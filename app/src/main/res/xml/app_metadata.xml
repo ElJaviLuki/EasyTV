@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppFunctionAppMetadata xmlns:appfn="http://schemas.android.com/apk/androidx.appfunctions"
+    appfn:description="EasyTV is an Android TV IPTV app for live channels, series, and movies.
+Operational Patterns:
+- For 'pon el partido X', 'dónde echan X', or a match/team query: call playLiveByQuery.
+  First resolve likely broadcasters from the web if needed, then pass them as channelHints
+  (e.g. DAZN, M+ LaLiga) together with the match query so EasyTV can match the user's playlist.
+- For 'pon Antena 3' or 'pon la 5': call playChannel with the name or number.
+- For 'abre series' / 'películas' / 'tele': call openMode.
+Constraints:
+- Requires a seeded playlists.json on the device.
+- Channel and program matching is against the user's IPTV list and short EPG only.
+- Prefer channelHints from web search when the user asks for a match without naming the channel."
+    appfn:displayDescription="@string/appfunctions_display_description" />

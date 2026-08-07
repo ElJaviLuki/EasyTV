@@ -1,17 +1,18 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.devtools.ksp")
 }
 
 android {
     namespace = "com.eljaviluki.easytv"
-    compileSdk = 35
+    compileSdk = 37
     buildToolsVersion = "36.0.0"
 
     defaultConfig {
         applicationId = "com.eljaviluki.easytv"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }
@@ -54,4 +55,17 @@ dependencies {
     implementation("androidx.media3:media3-datasource-okhttp:1.5.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil:2.7.0")
+    implementation("androidx.appfunctions:appfunctions:1.0.0-alpha10")
+    ksp("androidx.appfunctions:appfunctions-compiler:1.0.0-alpha10")
+}
+
+// Ensure KSP-generated AppFunction XML assets are packaged into the APK.
+androidComponents {
+    onVariants { variant ->
+        val kspTaskName = "ksp${variant.name.replaceFirstChar { it.uppercase() }}Kotlin"
+        afterEvaluate {
+            tasks.findByName("merge${variant.name.replaceFirstChar { it.uppercase() }}Assets")
+                ?.dependsOn(kspTaskName)
+        }
+    }
 }

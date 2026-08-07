@@ -20,4 +20,5 @@
     <string name="settings_zap_wrap_on">CH+/CH−: circular al llegar al final · Activado</string>
     <string name="settings_zap_wrap_off">CH+/CH−: circular al llegar al final · Desactivado</string>
     <string name="resuming">Reanudando…</string>
+    <string name="appfunctions_display_description">Controla EasyTV por voz: sintoniza canales, busca partidos en la guía y abre series o películas.</string>
 </resources>

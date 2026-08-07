@@ -298,8 +298,23 @@ object ModeNav {
         sourceId: String,
         channel: CatalogItem
     ) {
-        activity.startActivity(
-            Intent(activity, PlayerActivity::class.java)
+        playLive(activity, sourceId, channel)
+        finishAfterNav(activity)
+    }
+
+    /**
+     * Tune a live channel from any context (activities or AppFunctions service).
+     * Sets zap playlist state and opens [PlayerActivity].
+     */
+    fun playLive(context: Context, sourceId: String, channel: CatalogItem) {
+        AppSettings.lastSourceId = sourceId
+        AppSettings.lastScreen = AppScreen.TV
+        AppSettings.saveLastLive(channel)
+        EpisodeQueue.clear()
+        val flags = playerIntentFlags() or
+            if (context !is Activity) Intent.FLAG_ACTIVITY_NEW_TASK else 0
+        context.startActivity(
+            Intent(context, PlayerActivity::class.java)
                 .putExtra(PlayerActivity.EXTRA_URL, channel.url)
                 .putExtra(PlayerActivity.EXTRA_NAME, channel.name)
                 .putExtra(PlayerActivity.EXTRA_GROUP, channel.group)
@@ -309,9 +324,39 @@ object ModeNav {
                 .putExtra(PlayerActivity.EXTRA_SOURCE_ID, sourceId)
                 .putExtra(PlayerActivity.EXTRA_ZAP_ENABLED, true)
                 .putExtra(PlayerActivity.EXTRA_SEEK_ENABLED, false)
-                .addFlags(playerIntentFlags())
+                .addFlags(flags)
         )
-        finishAfterNav(activity)
+    }
+
+    /** Open a content catalog from a non-activity context (e.g. AppFunctions). */
+    fun openCatalogFromContext(context: Context, sourceId: String, kind: ContentKind) {
+        AppSettings.lastSourceId = sourceId
+        AppSettings.lastScreen = when (kind) {
+            ContentKind.LIVE -> AppScreen.CHANNELS
+            ContentKind.SERIES -> {
+                AppSettings.lastSeriesHub = AppScreen.SERIES
+                AppScreen.SERIES
+            }
+            ContentKind.MOVIES -> {
+                AppSettings.lastMoviesHub = AppScreen.MOVIES
+                AppScreen.MOVIES
+            }
+        }
+        val flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or
+            if (context !is Activity) Intent.FLAG_ACTIVITY_NEW_TASK else 0
+        context.startActivity(
+            Intent(context, CatalogActivity::class.java)
+                .putExtra(CatalogActivity.EXTRA_SOURCE_ID, sourceId)
+                .putExtra(CatalogActivity.EXTRA_KIND, kind.name)
+                .putExtra(EXTRA_FROM_TV, kind == ContentKind.LIVE)
+                .addFlags(flags)
+        )
+    }
+
+    fun resolveActiveSourceId(): String? {
+        val last = AppSettings.lastSourceId
+        if (last.isNotBlank() && PlaylistStore.byId(last) != null) return last
+        return PlaylistStore.sources().firstOrNull()?.id
     }
 
     private suspend fun restoreEpisodeQueue(
