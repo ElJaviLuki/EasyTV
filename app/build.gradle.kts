@@ -19,7 +19,11 @@ android {
 
     buildTypes {
         release {
+            // Non-debuggable so parental / kids app pickers treat it like a normal TV app.
+            isDebuggable = false
             isMinifyEnabled = false
+            // Local installs: reuse the debug keystore (no Play signing required).
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
