@@ -58,6 +58,11 @@
         </service>
 
         <activity
+            android:name=".SourcePickerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.EasyTV" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.EasyTV" />

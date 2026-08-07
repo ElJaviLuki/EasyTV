@@ -15,6 +15,11 @@ captures/
 secrets/
 *.secret.json
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
 # OS / editor
 .DS_Store
 Thumbs.db
@@ -25,3 +30,9 @@ Thumbs.db
 m3u_test.txt
 *.ab
 log_decoded.json
+
+# Rust build artifacts
+**/target/
+
+# Generated from secrets/channels_clean.json (see syncChannelsCleanAsset)
+app/src/main/assets/channels_clean.json

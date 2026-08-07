@@ -13,10 +13,18 @@ import kotlinx.coroutines.withContext
 /**
  * Color-button navigation and resume helpers.
  *
- * Rojo = TV · Verde = Series · Amarillo = Películas · Azul = Configuración
+ * Rojo = TV · Verde = Series · Amarillo = Películas ·
+ * Azul ×6 (rápido) = Configuración
  */
 object ModeNav {
     const val EXTRA_FROM_TV = "from_tv"
+
+    /** Consecutive blue presses needed to open settings (accidental-press guard). */
+    private const val BLUE_SETTINGS_PRESSES = 6
+    private const val BLUE_SETTINGS_WINDOW_MS = 900L
+
+    private var bluePressCount: Int = 0
+    private var lastBluePressAt: Long = 0L
 
     /** Finish current screen unless it's Main (kept under) or Player (reused via singleTop). */
     private fun finishAfterNav(activity: AppCompatActivity) {
@@ -27,10 +35,32 @@ object ModeNav {
     private fun playerIntentFlags(): Int =
         Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
 
+    private fun resetBluePresses() {
+        bluePressCount = 0
+        lastBluePressAt = 0L
+    }
+
+    /** True when the 6th rapid blue press should open settings. */
+    private fun registerBluePress(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastBluePressAt > BLUE_SETTINGS_WINDOW_MS) {
+            bluePressCount = 0
+        }
+        lastBluePressAt = now
+        bluePressCount += 1
+        if (bluePressCount >= BLUE_SETTINGS_PRESSES) {
+            resetBluePresses()
+            return true
+        }
+        return false
+    }
+
     fun handleColorKey(activity: AppCompatActivity, keyCode: Int, sourceId: String): Boolean {
         val sid = sourceId.ifBlank { AppSettings.preferredSourceId() }
-        // TV (red) works from bundled channels; series/movies need a playlist.
-        if (sid.isBlank() && keyCode != KeyEvent.KEYCODE_PROG_RED) {
+        // TV (red) works without a VOD playlist; series/movies need one.
+        if (sid.isBlank() && keyCode != KeyEvent.KEYCODE_PROG_RED &&
+            keyCode != KeyEvent.KEYCODE_PROG_BLUE
+        ) {
             return false
         }
         if (activity is PlayerActivity) {
@@ -38,23 +68,31 @@ object ModeNav {
         }
         return when (keyCode) {
             KeyEvent.KEYCODE_PROG_RED -> {
+                resetBluePresses()
                 if (activity is PlayerActivity && activity.isLiveZap) return true
                 openTv(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_GREEN -> {
+                resetBluePresses()
                 if (sid.isBlank()) return true
                 openSeries(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_YELLOW -> {
+                resetBluePresses()
                 if (sid.isBlank()) return true
                 openMovies(activity, sid)
                 true
             }
             KeyEvent.KEYCODE_PROG_BLUE -> {
-                if (activity is SettingsActivity) return true
-                openSettings(activity, sid, currentScreenFor(activity))
+                if (activity is SettingsActivity) {
+                    resetBluePresses()
+                    return true
+                }
+                if (registerBluePress()) {
+                    openSettings(activity, sid, currentScreenFor(activity))
+                }
                 true
             }
             else -> false
@@ -429,7 +467,7 @@ object ModeNav {
                     (last.channelId.isNotBlank() && it.channelId == last.channelId) ||
                         it.url == last.url ||
                         (last.streamId != null && it.streamId == last.streamId) ||
-                        it.lives.any { endpoint -> endpoint.url == last.url }
+                        it.lives.any { live -> live.url == last.url }
                 } ?: playable.first()
             } else {
                 playable.first()
